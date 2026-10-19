@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, NavLink, useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { currentUser, getOwner, initials, type Item } from "./data";
+import { currentUser, getOwner, initials, photoSrc, type Item } from "./data";
 import { Icon } from "./Icon";
 import { useStore } from "./store";
 
@@ -48,6 +48,10 @@ export function SiteHeader() {
         </nav>
 
         <div className="header-actions">
+          <Link to="/list" className="list-button" aria-label="List an item">
+            <Icon name="plus" size={18} />
+            <span>List an item</span>
+          </Link>
           <Link
             to="/activity"
             className={`icon-button ${activeRequestCount ? "has-dot" : ""}`}
@@ -155,7 +159,7 @@ export function ItemCard({ item }: { item: Item }) {
     <article className="item-card">
       <Link to={`/items/${item.id}`} className="item-link">
         <div className="item-image">
-          <img src={item.photo} alt={item.alt} loading="lazy" />
+          <img src={photoSrc(item)} alt={item.alt} loading="lazy" />
           <span className="distance">{item.distance}</span>
         </div>
         <div className="item-info">

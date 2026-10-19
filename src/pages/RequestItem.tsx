@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { BackLink } from "../components";
-import { PICKUP_SPOT, firstName, getItem, getOwner, rentalCost } from "../data";
+import { ME, firstName, getOwner, photoSrc, pickupOf, rentalCost } from "../data";
 import { addDays, daysInclusive, formatDay, formatMonth, sameDay, startOfDay, toISODate } from "../dates";
 import { Icon } from "../Icon";
 import { makeId, useStore } from "../store";
@@ -76,14 +76,15 @@ function Calendar({
 export default function RequestItem() {
   const { itemId } = useParams();
   const navigate = useNavigate();
-  const { dispatch } = useStore();
+  const { dispatch, findItem } = useStore();
   const tomorrow = addDays(startOfDay(new Date()), 1);
   const [start, setStart] = useState<Date | null>(tomorrow);
   const [end, setEnd] = useState<Date | null>(addDays(tomorrow, 2));
   const [error, setError] = useState("");
 
-  const item = getItem(itemId);
+  const item = findItem(itemId);
   if (!item) return <NotFound />;
+  if (item.ownerId === ME) return <Navigate to={`/items/${item.id}`} replace />;
   const owner = getOwner(item.ownerId);
   const ownerFirst = firstName(owner.name);
 
@@ -135,7 +136,7 @@ export default function RequestItem() {
       <div className="split">
         <div className="split-main">
           <div className="mini-item">
-            <img src={item.photo} alt="" />
+            <img src={photoSrc(item)} alt="" />
             <div>
               <b>{item.title}</b>
               <p>
@@ -187,7 +188,7 @@ export default function RequestItem() {
                 <Icon name="map" />
               </span>
               <div>
-                <b>{PICKUP_SPOT}</b>
+                <b>{pickupOf(item)}</b>
                 <p>On campus · suggested by {ownerFirst}</p>
               </div>
               <i>

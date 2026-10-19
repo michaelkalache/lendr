@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useReducer, type ReactNode } from "react";
-import { firstName, getItem, getOwner, items } from "./data";
+import { firstName, getOwner, items, type Item } from "./data";
 import { formatRange } from "./dates";
 
 export const REQUEST_TTL_MS = 2 * 60 * 60 * 1000;
@@ -39,6 +39,8 @@ type State = {
   requests: BorrowRequest[];
   threads: Record<string, Thread>;
   incoming: IncomingStatus;
+  /** Listings created by the current user, newest first. */
+  listings: Item[];
 };
 
 type Action =
@@ -48,6 +50,8 @@ type Action =
   | { type: "openThread"; ownerId: string; itemId: string }
   | { type: "sendMessage"; ownerId: string; text: string }
   | { type: "setIncoming"; status: IncomingStatus }
+  | { type: "saveListing"; listing: Item }
+  | { type: "removeListing"; id: string }
   | { type: "reset" };
 
 const STORAGE_KEY = "lendr:v1";
@@ -63,6 +67,7 @@ function seedState(): State {
     favorites: [],
     requests: [],
     incoming: "pending",
+    listings: [],
     threads: {
       [projector.ownerId]: {
         ownerId: projector.ownerId,
@@ -83,7 +88,7 @@ function loadState(): State {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as State;
-      if (parsed && parsed.version === 1) return parsed;
+      if (parsed && parsed.version === 1) return { ...parsed, listings: parsed.listings ?? [] };
     }
   } catch {
     // Storage unavailable or corrupted: fall back to a fresh demo state.
@@ -113,7 +118,7 @@ function reducer(state: State, action: Action): State {
     }
     case "createRequest": {
       const { request } = action;
-      const item = getItem(request.itemId)!;
+      const item = [...state.listings, ...items].find((entry) => entry.id === request.itemId)!;
       const owner = getOwner(item.ownerId);
       const thread = ensureThread(state, owner.id, item.id);
       const note: ChatMessage = {
@@ -165,6 +170,21 @@ function reducer(state: State, action: Action): State {
     }
     case "setIncoming":
       return { ...state, incoming: action.status };
+    case "saveListing": {
+      const exists = state.listings.some((listing) => listing.id === action.listing.id);
+      return {
+        ...state,
+        listings: exists
+          ? state.listings.map((listing) => (listing.id === action.listing.id ? action.listing : listing))
+          : [action.listing, ...state.listings],
+      };
+    }
+    case "removeListing":
+      return {
+        ...state,
+        listings: state.listings.filter((listing) => listing.id !== action.id),
+        favorites: state.favorites.filter((id) => id !== action.id),
+      };
     case "reset":
       return seedState();
   }
@@ -181,6 +201,9 @@ export function displayStatus(request: BorrowRequest, now = Date.now()): Display
 type Store = State & {
   dispatch: (action: Action) => void;
   activeRequestCount: number;
+  /** Your listings followed by the built-in campus listings. */
+  allItems: Item[];
+  findItem: (id: string | undefined) => Item | undefined;
 };
 
 const StoreContext = createContext<Store | null>(null);
@@ -196,16 +219,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }, [state]);
 
-  const value = useMemo<Store>(
-    () => ({
+  const value = useMemo<Store>(() => {
+    const allItems = [...state.listings, ...items];
+    return {
       ...state,
       dispatch,
+      allItems,
+      findItem: (id: string | undefined) => allItems.find((item) => item.id === id),
       activeRequestCount:
         state.requests.filter((request) => displayStatus(request) === "pending").length +
         (state.incoming === "pending" ? 1 : 0),
-    }),
-    [state],
-  );
+    };
+  }, [state]);
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { EmptyState } from "../components";
-import { PICKUP_SPOT, firstName, getItem, getOwner, photos, type Item } from "../data";
+import { PICKUP_SPOT, firstName, getOwner, photoSrc, photos, pickupOf, type Item } from "../data";
 import { formatRange, formatTime, formatWhen } from "../dates";
 import { Icon } from "../Icon";
 import { REQUEST_TTL_MS, displayStatus, useStore, type BorrowRequest, type DisplayStatus } from "../store";
@@ -30,7 +30,7 @@ function RequestCard({ request, item }: { request: BorrowRequest; item: Item }) 
   return (
     <article className={`activity-card status-${status}`}>
       <button className="activity-item" onClick={() => navigate(`/items/${item.id}`)}>
-        <img src={item.photo} alt="" />
+        <img src={photoSrc(item)} alt="" />
         <div>
           <span className="status-tag">{STATUS_LABEL[status]}</span>
           <h3>{item.title}</h3>
@@ -68,7 +68,7 @@ function RequestCard({ request, item }: { request: BorrowRequest; item: Item }) 
               <span>3</span>
               <div>
                 <b>Meet & pick up</b>
-                <p>{PICKUP_SPOT}</p>
+                <p>{pickupOf(item)}</p>
               </div>
             </div>
           </div>
@@ -101,7 +101,7 @@ function RequestCard({ request, item }: { request: BorrowRequest; item: Item }) 
 }
 
 function Borrowing() {
-  const { requests } = useStore();
+  const { requests, findItem } = useStore();
   const active = requests.filter((request) => displayStatus(request) === "pending");
   const past = requests.filter((request) => displayStatus(request) !== "pending");
 
@@ -127,7 +127,7 @@ function Borrowing() {
           </div>
           <div className="activity-list">
             {active.map((request) => {
-              const item = getItem(request.itemId);
+              const item = findItem(request.itemId);
               return item ? <RequestCard key={request.id} request={request} item={item} /> : null;
             })}
           </div>
@@ -147,7 +147,7 @@ function Borrowing() {
           </div>
           <div className="activity-list">
             {past.map((request) => {
-              const item = getItem(request.itemId);
+              const item = findItem(request.itemId);
               return item ? <RequestCard key={request.id} request={request} item={item} /> : null;
             })}
           </div>

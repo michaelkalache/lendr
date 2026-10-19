@@ -1,6 +1,7 @@
+import { useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { BackLink, FavoriteButton } from "../components";
-import { PICKUP_SPOT, firstName, getItem, getOwner, initials } from "../data";
+import { ME, firstName, getOwner, initials, photoSrc, pickupOf } from "../data";
 import { Icon } from "../Icon";
 import { useStore } from "../store";
 import NotFound from "./NotFound";
@@ -9,26 +10,45 @@ export default function Detail() {
   const { itemId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const { dispatch } = useStore();
-  const item = getItem(itemId);
+  const { dispatch, findItem } = useStore();
+  const [confirmRemove, setConfirmRemove] = useState(false);
+  const item = findItem(itemId);
   if (!item) return <NotFound />;
   const owner = getOwner(item.ownerId);
   const ownerFirst = firstName(owner.name);
+  const isMine = item.ownerId === ME;
+  const justPublished = (location.state as { published?: "new" | "updated" } | null)?.published;
 
   const messageOwner = () => {
     dispatch({ type: "openThread", ownerId: owner.id, itemId: item.id });
     navigate(`/messages/${owner.id}`);
   };
 
+  const remove = () => {
+    dispatch({ type: "removeListing", id: item.id });
+    navigate("/account", { replace: true });
+  };
+
   return (
     <div className="container detail-page">
       <div className="desktop-only">
-        <BackLink to="/explore" label="Back to listings" />
+        <BackLink to={isMine ? "/account" : "/explore"} label={isMine ? "Back to your listings" : "Back to listings"} />
       </div>
+
+      {justPublished && (
+        <div className="publish-banner" role="status">
+          <Icon name="check" />
+          <span>
+            <b>{justPublished === "new" ? "Your listing is live." : "Listing updated."}</b> Anteaters can now find it in
+            Discover and Explore.
+          </span>
+        </div>
+      )}
+
       <div className="split">
         <div className="split-main">
           <div className="detail-photo">
-            <img src={item.photo} alt={item.alt} />
+            <img src={photoSrc(item)} alt={item.alt} />
             <button
               className="floating back mobile-only"
               onClick={() => (location.key === "default" ? navigate("/") : navigate(-1))}
@@ -36,16 +56,17 @@ export default function Detail() {
             >
               <Icon name="arrow" />
             </button>
-            <FavoriteButton itemId={item.id} className="floating save" />
+            {!isMine && <FavoriteButton itemId={item.id} className="floating save" />}
           </div>
 
           <div className="detail-body">
             <div className="status-row">
               <span className="availability">
-                <i /> Available now
+                <i /> {isMine ? "Your listing · live" : "Available now"}
               </span>
               <span>
-                <Icon name="map" size={16} /> {item.distance} away
+                <Icon name="map" size={16} /> {item.distance}
+                {isMine ? "" : " away"}
               </span>
             </div>
             <h1>{item.title}</h1>
@@ -57,7 +78,7 @@ export default function Detail() {
               <div className="avatar">{initials(owner.name)}</div>
               <div>
                 <h3>
-                  {owner.name}{" "}
+                  {isMine ? `${owner.name} (you)` : owner.name}{" "}
                   <span>
                     <Icon name="shield" size={15} /> UCI verified
                   </span>
@@ -68,14 +89,16 @@ export default function Detail() {
               </div>
             </div>
 
-            <button className="message-owner" onClick={messageOwner}>
-              <Icon name="message" />
-              <span>
-                <b>Message {ownerFirst}</b>
-                <small>Ask about availability or the item</small>
-              </span>
-              <Icon name="chevron" />
-            </button>
+            {!isMine && (
+              <button className="message-owner" onClick={messageOwner}>
+                <Icon name="message" />
+                <span>
+                  <b>Message {ownerFirst}</b>
+                  <small>Ask about availability or the item</small>
+                </span>
+                <Icon name="chevron" />
+              </button>
+            )}
 
             <section className="details-block">
               <h2>About this item</h2>
@@ -89,7 +112,7 @@ export default function Detail() {
                   <Icon name="map" />
                 </span>
                 <div>
-                  <b>{PICKUP_SPOT}</b>
+                  <b>{pickupOf(item)}</b>
                   <p>Exact meetup spot shared after approval</p>
                 </div>
               </div>
@@ -125,20 +148,53 @@ export default function Detail() {
         </div>
 
         <aside className="split-aside">
-          <div className="action-card">
-            <div className="desktop-only action-card-head">
-              <div className="price">
-                <strong>${item.price}</strong> / day
+          {isMine ? (
+            <div className="action-card">
+              <div className="desktop-only action-card-head">
+                <div className="price">
+                  <strong>${item.price}</strong> / day
+                </div>
+                <p>This is your listing. Borrowers can request it now.</p>
               </div>
-              <p>
-                {ownerFirst} usually responds within {owner.responseMins} minutes
-              </p>
+              {confirmRemove ? (
+                <div className="remove-confirm">
+                  <p>Remove this listing? It disappears from Discover right away.</p>
+                  <div>
+                    <button className="secondary" onClick={() => setConfirmRemove(false)}>
+                      Keep it
+                    </button>
+                    <button className="primary danger" onClick={remove}>
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="owner-actions">
+                  <button className="secondary" onClick={() => setConfirmRemove(true)}>
+                    Remove
+                  </button>
+                  <Link className="primary link-button" to={`/items/${item.id}/edit`}>
+                    Edit listing
+                  </Link>
+                </div>
+              )}
             </div>
-            <Link className="primary link-button" to={`/items/${item.id}/request`}>
-              Check dates & request
-            </Link>
-            <p className="action-note">You won’t be charged until {ownerFirst} accepts.</p>
-          </div>
+          ) : (
+            <div className="action-card">
+              <div className="desktop-only action-card-head">
+                <div className="price">
+                  <strong>${item.price}</strong> / day
+                </div>
+                <p>
+                  {ownerFirst} usually responds within {owner.responseMins} minutes
+                </p>
+              </div>
+              <Link className="primary link-button" to={`/items/${item.id}/request`}>
+                Check dates & request
+              </Link>
+              <p className="action-note">You won’t be charged until {ownerFirst} accepts.</p>
+            </div>
+          )}
         </aside>
       </div>
     </div>

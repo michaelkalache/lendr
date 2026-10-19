@@ -1,5 +1,5 @@
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { firstName, getItem, getOwner } from "../data";
+import { firstName, getOwner, photoSrc } from "../data";
 import { formatRange } from "../dates";
 import { Icon } from "../Icon";
 import { useStore } from "../store";
@@ -8,9 +8,9 @@ import NotFound from "./NotFound";
 export default function Confirmed() {
   const { requestId } = useParams();
   const navigate = useNavigate();
-  const { requests, dispatch } = useStore();
+  const { requests, dispatch, findItem } = useStore();
   const request = requests.find((entry) => entry.id === requestId);
-  const item = request ? getItem(request.itemId) : undefined;
+  const item = request ? findItem(request.itemId) : undefined;
   if (!request || !item) return <NotFound />;
   const owner = getOwner(item.ownerId);
   const ownerFirst = firstName(owner.name);
@@ -29,7 +29,7 @@ export default function Confirmed() {
 
         <div className="request-ticket">
           <div className="ticket-item">
-            <img src={item.photo} alt="" />
+            <img src={photoSrc(item)} alt="" />
             <div>
               <span>PENDING APPROVAL</span>
               <h3>{item.title}</h3>

@@ -7,6 +7,7 @@ import Confirmed from "./pages/Confirmed";
 import Detail from "./pages/Detail";
 import Explore from "./pages/Explore";
 import Home from "./pages/Home";
+import ListItem from "./pages/ListItem";
 import Messages from "./pages/Messages";
 import NotFound from "./pages/NotFound";
 import RequestItem from "./pages/RequestItem";
@@ -14,6 +15,8 @@ import RequestItem from "./pages/RequestItem";
 const TITLES: [RegExp, string][] = [
   [/^\/explore/, "Explore"],
   [/^\/items\/[^/]+\/request/, "Request item"],
+  [/^\/items\/[^/]+\/edit/, "Edit listing"],
+  [/^\/list/, "List an item"],
   [/^\/items\//, "Item"],
   [/^\/requests\//, "Request sent"],
   [/^\/activity/, "Activity"],
@@ -25,6 +28,7 @@ function Layout() {
   const { pathname } = useLocation();
   // Detail, request, and confirmation screens use their own sticky action bar on mobile.
   const focused = /^\/(items|requests)\//.test(pathname);
+  const isForm = pathname === "/list" || /\/edit$/.test(pathname);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -38,7 +42,7 @@ function Layout() {
       <main className="site-main">
         <Outlet />
       </main>
-      {!focused && <BottomNav />}
+      {!focused && !isForm && <BottomNav />}
     </div>
   );
 }
@@ -51,6 +55,8 @@ export default function App() {
         <Route path="explore" element={<Explore />} />
         <Route path="items/:itemId" element={<Detail />} />
         <Route path="items/:itemId/request" element={<RequestItem />} />
+        <Route path="items/:itemId/edit" element={<ListItem />} />
+        <Route path="list" element={<ListItem />} />
         <Route path="requests/:requestId" element={<Confirmed />} />
         <Route path="activity" element={<Activity />} />
         <Route path="messages" element={<Messages />} />

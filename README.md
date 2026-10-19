@@ -14,10 +14,13 @@ a desktop layout with a top navigation bar, and a mobile layout with the origina
 5. **Sent** (`/requests/:id`) — confirmation and status timeline
 6. **Activity** (`/activity`) — track, cancel, or follow up; requests expire after 2 hours without a reply
 7. **Messages** (`/messages/:lender`) — chat with the lender, quick replies
-8. **Account** (`/account`) — trust profile, saved items, demo reset
+8. **Account** (`/account`) — your listings, trust profile, saved items, demo reset
+9. **List an item** (`/list`) — photo upload, category, price, replacement value, pickup spot;
+   edit or remove it later from the item page (`/items/:id/edit`)
 
-Requests, messages, and saved items are stored in the browser (`localStorage`), so the demo remembers what you did.
-There is no backend yet — every visitor sees their own copy of the demo data.
+Listings, requests, messages, and saved items are stored in the browser (`localStorage`), so the demo remembers what you did.
+There is no backend yet — every visitor sees their own copy of the demo data, so a listing you create
+is only visible in your own browser. Sharing listings between people needs a database (e.g. Supabase).
 
 ## Run it locally
 

@@ -1,18 +1,18 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { BackLink, EmptyState } from "../components";
-import { PICKUP_SPOT, firstName, getItem, getOwner, initials } from "../data";
+import { firstName, getOwner, initials, photoSrc, pickupOf } from "../data";
 import { formatTime, formatWhen } from "../dates";
 import { Icon } from "../Icon";
 import { useStore, type Thread } from "../store";
 
 function ThreadView({ thread }: { thread: Thread }) {
-  const { dispatch } = useStore();
+  const { dispatch, findItem } = useStore();
   const [draft, setDraft] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const lastCount = useRef(thread.messages.length);
   const owner = getOwner(thread.ownerId);
-  const item = getItem(thread.itemId)!;
+  const item = findItem(thread.itemId)!;
   const ownerFirst = firstName(owner.name);
 
   useEffect(() => {
@@ -49,7 +49,7 @@ function ThreadView({ thread }: { thread: Thread }) {
           </span>
         </div>
         <Link className="chat-item" to={`/items/${item.id}`}>
-          <img src={item.photo} alt="" />
+          <img src={photoSrc(item)} alt="" />
           <span>
             <small>ABOUT THIS ITEM</small>
             <b>{item.title}</b>
@@ -94,7 +94,7 @@ function ThreadView({ thread }: { thread: Thread }) {
       <div className="composer-wrap">
         <div className="quick-replies">
           <button onClick={() => send(`Is the ${item.title} still available for my dates?`)}>Confirm availability</button>
-          <button onClick={() => send(`Can we meet at the ${PICKUP_SPOT}?`)}>Plan pickup</button>
+          <button onClick={() => send(`Can we meet at the ${pickupOf(item)}?`)}>Plan pickup</button>
           <button onClick={() => send("I’ll share a pickup condition photo here.")}>Share condition</button>
         </div>
         <form
@@ -125,7 +125,7 @@ function ThreadView({ thread }: { thread: Thread }) {
 
 export default function Messages() {
   const { ownerId } = useParams();
-  const { threads } = useStore();
+  const { threads, findItem } = useStore();
   const list = Object.values(threads).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   const selected = (ownerId && threads[ownerId]) || (!ownerId ? list[0] : undefined);
 
@@ -149,7 +149,7 @@ export default function Messages() {
         <aside className="thread-list" aria-label="Conversations">
           {list.map((thread) => {
             const owner = getOwner(thread.ownerId);
-            const item = getItem(thread.itemId);
+            const item = findItem(thread.itemId);
             const last = thread.messages[thread.messages.length - 1];
             const active = selected?.ownerId === thread.ownerId;
             return (

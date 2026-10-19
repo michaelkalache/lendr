@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { HeroArt, ItemCard } from "../components";
-import { categories, firstName, getItem, getOwner, items } from "../data";
+import { categories, firstName, getOwner, photoSrc } from "../data";
 import { formatRange } from "../dates";
 import { Icon } from "../Icon";
 import { displayStatus, useStore } from "../store";
@@ -16,9 +16,9 @@ function greeting() {
 export default function Home() {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
-  const { requests } = useStore();
+  const { requests, allItems, findItem } = useStore();
   const pending = requests.find((request) => displayStatus(request) === "pending");
-  const pendingItem = pending ? getItem(pending.itemId) : undefined;
+  const pendingItem = pending ? findItem(pending.itemId) : undefined;
 
   const explore = (value: string) =>
     navigate(`/explore${value.trim() ? `?q=${encodeURIComponent(value.trim())}` : ""}`);
@@ -63,7 +63,7 @@ export default function Home() {
 
       {pending && pendingItem && (
         <Link to="/activity" className="pending-strip">
-          <img src={pendingItem.photo} alt="" />
+          <img src={photoSrc(pendingItem)} alt="" />
           <span>
             <small>REQUEST PENDING</small>
             <b>
@@ -89,6 +89,17 @@ export default function Home() {
         </div>
       </section>
 
+      <Link to="/list" className="lend-cta">
+        <span className="lend-cta-icon">
+          <Icon name="plus" size={22} />
+        </span>
+        <span>
+          <b>Have something sitting unused?</b>
+          <em>List it in a minute and earn from fellow Anteaters.</em>
+        </span>
+        <Icon name="chevron" />
+      </Link>
+
       <section className="home-section">
         <div className="section-title">
           <div>
@@ -100,7 +111,7 @@ export default function Home() {
           </Link>
         </div>
         <div className="item-grid">
-          {items.map((item) => (
+          {allItems.map((item) => (
             <ItemCard key={item.id} item={item} />
           ))}
         </div>

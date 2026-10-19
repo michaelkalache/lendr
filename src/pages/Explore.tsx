@@ -2,11 +2,13 @@ import { useSearchParams } from "react-router-dom";
 import { EmptyState, HeroArt, ItemCard } from "../components";
 import { categories, searchItems } from "../data";
 import { Icon } from "../Icon";
+import { useStore } from "../store";
 
 export default function Explore() {
   const [params, setParams] = useSearchParams();
   const query = params.get("q") ?? "";
-  const { matchedCategory, normalized, results } = searchItems(query);
+  const { allItems } = useStore();
+  const { matchedCategory, normalized, results } = searchItems(query, allItems);
 
   const setQuery = (value: string) => setParams(value ? { q: value } : {}, { replace: true });
 

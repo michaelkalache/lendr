@@ -19,6 +19,10 @@ export type Item = {
   alt: string;
   description: string;
   coverage: number;
+  /** Meetup spot; defaults to the Student Center. */
+  pickup?: string;
+  /** ISO timestamp, set on listings created in the app. */
+  createdAt?: string;
 };
 
 const unsplash = (id: string) =>
@@ -33,7 +37,10 @@ export const photos = {
   sleepingBag: unsplash("photo-1558477280-1bfed08ea5db"),
 };
 
+export const ME = "me";
+
 export const owners: Record<string, Owner> = {
+  [ME]: { id: ME, name: "Maya Kim", rating: "5.0", lends: 6, responseMins: 15 },
   jordan: { id: "jordan", name: "Jordan Lee", rating: "4.9", lends: 18, responseMins: 20 },
   priya: { id: "priya", name: "Priya S.", rating: "5.0", lends: 24, responseMins: 15 },
   alex: { id: "alex", name: "Alex R.", rating: "4.8", lends: 11, responseMins: 30 },
@@ -131,8 +138,26 @@ export const currentUser = {
 
 export const PICKUP_SPOT = "UCI Student Center";
 
-export const getItem = (id: string | undefined) => items.find((item) => item.id === id);
 export const getOwner = (id: string) => owners[id];
+export const pickupOf = (item: Item) => item.pickup?.trim() || PICKUP_SPOT;
+
+const SYMBOLS: Record<Category, string> = { Projectors: "▱", Tools: "⌁", Outdoors: "△" };
+
+/** The item's photo, or a category illustration when the lender didn't upload one. */
+export function photoSrc(item: Item) {
+  if (item.photo) return item.photo;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><rect width="400" height="300" fill="#eaf3f9"/><circle cx="330" cy="40" r="70" fill="none" stroke="#ffcf55" stroke-width="22" opacity=".5"/><text x="200" y="150" font-family="sans-serif" font-size="110" fill="#0064a4" text-anchor="middle" dominant-baseline="central">${SYMBOLS[item.category]}</text></svg>`;
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+}
+
+export function slugify(title: string) {
+  const base = title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40);
+  return `${base || "item"}-${Math.random().toString(36).slice(2, 6)}`;
+}
 export const firstName = (name: string) => name.split(" ")[0];
 export const initials = (name: string) =>
   name
@@ -142,7 +167,7 @@ export const initials = (name: string) =>
     .replace(".", "");
 
 /** Explore search: same matching rules as the prototype. */
-export function searchItems(query: string) {
+export function searchItems(query: string, items: Item[]) {
   const normalized = query.trim().toLowerCase();
   const matchedCategory = categories.find((category) => {
     const categoryName = category.name.toLowerCase();

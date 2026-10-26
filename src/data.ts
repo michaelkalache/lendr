@@ -1,11 +1,13 @@
 export type Category = "Projectors" | "Tools" | "Outdoors";
 
+/** A lender. Sample lenders carry made-up stats; real members only have a name and program. */
 export type Owner = {
   id: string;
   name: string;
-  rating: string;
-  lends: number;
-  responseMins: number;
+  program?: string;
+  rating?: string;
+  lends?: number;
+  responseMins?: number;
 };
 
 export type Item = {
@@ -23,6 +25,8 @@ export type Item = {
   pickup?: string;
   /** ISO timestamp, set on listings created in the app. */
   createdAt?: string;
+  /** Built-in example listing with no real person behind it: can be browsed, not borrowed. */
+  sample?: boolean;
 };
 
 const unsplash = (id: string) =>
@@ -37,10 +41,7 @@ export const photos = {
   sleepingBag: unsplash("photo-1558477280-1bfed08ea5db"),
 };
 
-export const ME = "me";
-
-export const owners: Record<string, Owner> = {
-  [ME]: { id: ME, name: "Maya Kim", rating: "5.0", lends: 6, responseMins: 15 },
+export const sampleOwners: Record<string, Owner> = {
   jordan: { id: "jordan", name: "Jordan Lee", rating: "4.9", lends: 18, responseMins: 20 },
   priya: { id: "priya", name: "Priya S.", rating: "5.0", lends: 24, responseMins: 15 },
   alex: { id: "alex", name: "Alex R.", rating: "4.8", lends: 11, responseMins: 30 },
@@ -49,7 +50,7 @@ export const owners: Record<string, Owner> = {
   dani: { id: "dani", name: "Dani M.", rating: "4.8", lends: 13, responseMins: 35 },
 };
 
-export const items: Item[] = [
+const rawSamples: Omit<Item, "sample">[] = [
   {
     id: "epson-mini-projector",
     title: "Epson Mini Projector",
@@ -124,21 +125,16 @@ export const items: Item[] = [
   },
 ];
 
+export const sampleItems: Item[] = rawSamples.map((item) => ({ ...item, sample: true }));
+
 export const categories: { name: Category; symbol: string }[] = [
   { name: "Projectors", symbol: "▱" },
   { name: "Tools", symbol: "⌁" },
   { name: "Outdoors", symbol: "△" },
 ];
 
-export const currentUser = {
-  name: "Maya Kim",
-  initials: "MK",
-  program: "Engineering ’27",
-};
-
 export const PICKUP_SPOT = "UCI Student Center";
 
-export const getOwner = (id: string) => owners[id];
 export const pickupOf = (item: Item) => item.pickup?.trim() || PICKUP_SPOT;
 
 const SYMBOLS: Record<Category, string> = { Projectors: "▱", Tools: "⌁", Outdoors: "△" };
@@ -150,21 +146,14 @@ export function photoSrc(item: Item) {
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
 
-export function slugify(title: string) {
-  const base = title
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 40);
-  return `${base || "item"}-${Math.random().toString(36).slice(2, 6)}`;
-}
-export const firstName = (name: string) => name.split(" ")[0];
+export const firstName = (name: string) => name.trim().split(/\s+/)[0] || name;
 export const initials = (name: string) =>
   name
-    .split(" ")
-    .map((part) => part[0])
-    .join("")
-    .replace(".", "");
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
 
 /** Explore search: same matching rules as the prototype. */
 export function searchItems(query: string, items: Item[]) {

@@ -1,5 +1,5 @@
-import { Link, useNavigate, useParams } from "react-router-dom";
-import { firstName, getOwner, photoSrc } from "../data";
+import { Link, useParams } from "react-router-dom";
+import { firstName, photoSrc } from "../data";
 import { formatRange } from "../dates";
 import { Icon } from "../Icon";
 import { useStore } from "../store";
@@ -7,13 +7,12 @@ import NotFound from "./NotFound";
 
 export default function Confirmed() {
   const { requestId } = useParams();
-  const navigate = useNavigate();
-  const { requests, dispatch, findItem } = useStore();
+  const { requests, findItem, ownerOf, threadFor, me } = useStore();
   const request = requests.find((entry) => entry.id === requestId);
   const item = request ? findItem(request.itemId) : undefined;
-  if (!request || !item) return <NotFound />;
-  const owner = getOwner(item.ownerId);
-  const ownerFirst = firstName(owner.name);
+  if (!request || !item || !me) return <NotFound />;
+  const ownerFirst = firstName(ownerOf(item).name);
+  const thread = threadFor(item.id, me.id);
 
   return (
     <div className="success-page">
@@ -24,7 +23,8 @@ export default function Confirmed() {
         <div className="eyebrow">REQUEST SENT</div>
         <h1>You’re one step closer.</h1>
         <p className="success-lede">
-          {ownerFirst} has been notified. We’ll give you a clear yes or no—usually within {owner.responseMins} minutes.
+          {ownerFirst} can see your request now. You’ll get a clear yes or no within 2 hours, or the request expires on
+          its own.
         </p>
 
         <div className="request-ticket">
@@ -59,19 +59,15 @@ export default function Confirmed() {
           <Link className="primary link-button" to="/activity">
             View request status
           </Link>
-          <button
-            className="secondary"
-            onClick={() => {
-              dispatch({ type: "openThread", ownerId: owner.id, itemId: item.id });
-              navigate(`/messages/${owner.id}`);
-            }}
-          >
-            <Icon name="message" /> Message {ownerFirst}
-          </button>
+          {thread && (
+            <Link className="secondary link-button" to={`/messages/${thread.id}`}>
+              <Icon name="message" /> Message {ownerFirst}
+            </Link>
+          )}
         </div>
         <div className="alert-note">
           <Icon name="bell" />
-          <span>We’ll notify you the moment {ownerFirst} responds.</span>
+          <span>Activity updates the moment {ownerFirst} responds.</span>
         </div>
         <Link to="/" className="text-link success-home">
           Keep browsing

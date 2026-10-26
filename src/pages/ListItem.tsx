@@ -1,7 +1,7 @@
 import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { BackLink, ItemCard } from "../components";
-import { ME, PICKUP_SPOT, categories, slugify, type Category, type Item } from "../data";
+import { PICKUP_SPOT, categories, type Category, type Item } from "../data";
 import { Icon } from "../Icon";
 import { useStore } from "../store";
 import NotFound from "./NotFound";
@@ -20,7 +20,7 @@ type Errors = Partial<Record<keyof Draft, string>>;
 
 const MAX_PHOTO_EDGE = 1000;
 
-/** Downscale an uploaded photo to a JPEG data URL so it fits comfortably in browser storage. */
+/** Downscale an uploaded photo to a JPEG data URL so uploads stay small and fast. */
 function resizePhoto(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
@@ -56,10 +56,10 @@ function validate(draft: Draft): Errors {
   return errors;
 }
 
-function toItem(draft: Draft, existing?: Item): Item {
+function toItem(draft: Draft, ownerId: string, existing?: Item): Item {
   const title = draft.title.trim();
   return {
-    id: existing?.id ?? slugify(title),
+    id: existing?.id ?? "preview",
     title,
     category: (draft.category || "Tools") as Category,
     price: Number(draft.price) || 0,
@@ -68,7 +68,7 @@ function toItem(draft: Draft, existing?: Item): Item {
     pickup: draft.pickup.trim() || PICKUP_SPOT,
     photo: draft.photo,
     alt: title,
-    ownerId: ME,
+    ownerId,
     distance: "On campus",
     createdAt: existing?.createdAt ?? new Date().toISOString(),
   };
@@ -77,7 +77,7 @@ function toItem(draft: Draft, existing?: Item): Item {
 export default function ListItem() {
   const { itemId } = useParams();
   const navigate = useNavigate();
-  const { dispatch, findItem } = useStore();
+  const { findItem, isMine, saveListing, me } = useStore();
   const existing = itemId ? findItem(itemId) : undefined;
   const fileRef = useRef<HTMLInputElement>(null);
   const [draft, setDraft] = useState<Draft>(() => ({
@@ -92,9 +92,11 @@ export default function ListItem() {
   const [errors, setErrors] = useState<Errors>({});
   const [photoError, setPhotoError] = useState("");
   const [photoBusy, setPhotoBusy] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
   if (itemId && !existing) return <NotFound />;
-  if (existing && existing.ownerId !== ME) return <Navigate to={`/items/${existing.id}`} replace />;
+  if (existing && !isMine(existing)) return <Navigate to={`/items/${existing.id}`} replace />;
 
   const set = (key: keyof Draft) => (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setDraft((current) => ({ ...current, [key]: event.target.value }));
@@ -121,8 +123,9 @@ export default function ListItem() {
     }
   };
 
-  const submit = (event: FormEvent) => {
+  const submit = async (event: FormEvent) => {
     event.preventDefault();
+    if (saving) return;
     const found = validate(draft);
     setErrors(found);
     if (Object.keys(found).length) {
@@ -130,12 +133,29 @@ export default function ListItem() {
       document.getElementById(`field-${first}`)?.focus();
       return;
     }
-    const listing = toItem(draft, existing);
-    dispatch({ type: "saveListing", listing });
-    navigate(`/items/${listing.id}`, { replace: true, state: { published: existing ? "updated" : "new" } });
+    setSaving(true);
+    setSaveError("");
+    const result = await saveListing(
+      {
+        title: draft.title,
+        category: draft.category as Category,
+        price: Number(draft.price),
+        coverage: Number(draft.coverage),
+        description: draft.description,
+        pickup: draft.pickup,
+        photo: draft.photo,
+      },
+      existing?.id,
+    );
+    setSaving(false);
+    if (!result.ok) {
+      setSaveError(result.error);
+      return;
+    }
+    navigate(`/items/${result.value}`, { replace: true, state: { published: existing ? "updated" : "new" } });
   };
 
-  const preview = toItem(draft, existing);
+  const preview = toItem(draft, me?.id ?? "", existing);
   if (!preview.title) preview.title = "Your item";
   if (!draft.category) preview.category = "Tools";
 
@@ -156,7 +176,7 @@ export default function ListItem() {
       <BackLink to={existing ? `/items/${existing.id}` : "/"} label={existing ? "Back to listing" : "Back to Discover"} />
       <h1 className="page-title">{existing ? "Edit your listing" : "List an item"}</h1>
       <p className="page-lede">
-        Lend something you aren’t using. Verified Anteaters request it, and you approve every borrow.
+        Lend something you aren’t using. Other Anteaters request it, and you approve every borrow.
       </p>
 
       <div className="split">
@@ -269,8 +289,13 @@ export default function ListItem() {
           </section>
 
           <div className="form-submit">
-            <button type="submit" className="primary">
-              {existing ? "Save changes" : "Publish listing"}
+            {saveError && (
+              <p className="form-error" role="alert">
+                {saveError}
+              </p>
+            )}
+            <button type="submit" className="primary" disabled={saving}>
+              {saving ? (draft.photo.startsWith("data:") ? "Uploading photo…" : "Saving…") : existing ? "Save changes" : "Publish listing"}
             </button>
           </div>
         </form>

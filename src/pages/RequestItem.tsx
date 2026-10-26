@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { BackLink } from "../components";
-import { ME, firstName, getOwner, photoSrc, pickupOf, rentalCost } from "../data";
+import { firstName, photoSrc, pickupOf, rentalCost } from "../data";
 import { addDays, daysInclusive, formatDay, formatMonth, sameDay, startOfDay, toISODate } from "../dates";
 import { Icon } from "../Icon";
-import { makeId, useStore } from "../store";
+import { useStore } from "../store";
 import NotFound from "./NotFound";
 
 const WEEKDAYS = ["S", "M", "T", "W", "T", "F", "S"];
@@ -76,16 +76,17 @@ function Calendar({
 export default function RequestItem() {
   const { itemId } = useParams();
   const navigate = useNavigate();
-  const { dispatch, findItem } = useStore();
+  const { findItem, ownerOf, isMine, createRequest } = useStore();
   const tomorrow = addDays(startOfDay(new Date()), 1);
   const [start, setStart] = useState<Date | null>(tomorrow);
   const [end, setEnd] = useState<Date | null>(addDays(tomorrow, 2));
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
 
   const item = findItem(itemId);
   if (!item) return <NotFound />;
-  if (item.ownerId === ME) return <Navigate to={`/items/${item.id}`} replace />;
-  const owner = getOwner(item.ownerId);
+  if (isMine(item) || item.sample) return <Navigate to={`/items/${item.id}`} replace />;
+  const owner = ownerOf(item);
   const ownerFirst = firstName(owner.name);
 
   const pick = (day: Date) => {
@@ -107,26 +108,16 @@ export default function RequestItem() {
   const total = rentalCost(item.price, days);
   const ready = Boolean(start && end);
 
-  const send = () => {
+  const send = async () => {
     if (!start || !end) {
       setError("Pick a return date to continue.");
       return;
     }
-    const id = makeId();
-    dispatch({
-      type: "createRequest",
-      request: {
-        id,
-        itemId: item.id,
-        start: toISODate(start),
-        end: toISODate(end),
-        days,
-        total,
-        status: "pending",
-        createdAt: new Date().toISOString(),
-      },
-    });
-    navigate(`/requests/${id}`, { replace: true });
+    setBusy(true);
+    const result = await createRequest(item.id, toISODate(start), toISODate(end));
+    setBusy(false);
+    if (result.ok) navigate(`/requests/${result.value}`, { replace: true });
+    else setError(result.error);
   };
 
   return (
@@ -151,7 +142,7 @@ export default function RequestItem() {
               <div>
                 <h2>Choose your dates</h2>
                 <p>
-                  Tap a start day, then a return day · {ownerFirst} usually responds within {owner.responseMins} minutes
+                  Tap a start day, then a return day · {ownerFirst} has 2 hours to respond
                 </p>
               </div>
             </div>
@@ -202,8 +193,8 @@ export default function RequestItem() {
             <p>
               <b>Damage responsibility</b>
               <br />
-              By requesting, you agree to cover verified damage beyond normal wear, up to ${item.coverage}. Lendr
-              reviews pickup/return photos and pauses payment during disputes.
+              By requesting, you agree to cover verified damage beyond normal wear, up to ${item.coverage}. Share
+              pickup and return photos in Messages so any issue can be settled fairly.
             </p>
           </div>
         </div>
@@ -218,10 +209,10 @@ export default function RequestItem() {
                 {total < days * item.price ? " · weekly cap applied" : ""} · No deposit
               </p>
             </div>
-            <button className="primary" onClick={send} aria-disabled={!ready}>
-              Send request to {ownerFirst}
+            <button className="primary" onClick={send} aria-disabled={!ready} disabled={busy}>
+              {busy ? "Sending…" : `Send request to ${ownerFirst}`}
             </button>
-            <p className="action-note">You won’t be charged until {ownerFirst} accepts.</p>
+            <p className="action-note">Nothing is charged online. Pay {ownerFirst} at pickup once they accept.</p>
           </div>
         </aside>
       </div>

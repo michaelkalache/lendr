@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, NavLink, useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { currentUser, getOwner, initials, photoSrc, type Item } from "./data";
+import { initials, photoSrc, type Item } from "./data";
 import { Icon } from "./Icon";
 import { useStore } from "./store";
 
@@ -10,7 +10,7 @@ export function SiteHeader() {
   const [params] = useSearchParams();
   const urlQuery = location.pathname === "/explore" ? params.get("q") ?? "" : "";
   const [query, setQuery] = useState(urlQuery);
-  const { activeRequestCount } = useStore();
+  const { activeRequestCount, me } = useStore();
 
   useEffect(() => setQuery(urlQuery), [urlQuery]);
 
@@ -60,7 +60,7 @@ export function SiteHeader() {
             <Icon name="bell" />
           </Link>
           <Link to="/account" className="header-avatar" aria-label="Your account">
-            {currentUser.initials}
+            {initials(me?.name ?? "")}
           </Link>
         </div>
       </div>
@@ -138,7 +138,7 @@ export function HeroArt({ compact = false }: { compact?: boolean }) {
 }
 
 export function FavoriteButton({ itemId, className = "favorite" }: { itemId: string; className?: string }) {
-  const { favorites, dispatch } = useStore();
+  const { favorites, toggleFavorite } = useStore();
   const saved = favorites.includes(itemId);
   return (
     <button
@@ -146,7 +146,7 @@ export function FavoriteButton({ itemId, className = "favorite" }: { itemId: str
       className={`${className} ${saved ? "saved" : ""}`}
       aria-pressed={saved}
       aria-label={saved ? "Remove from saved" : "Save item"}
-      onClick={() => dispatch({ type: "toggleFavorite", itemId })}
+      onClick={() => void toggleFavorite(itemId)}
     >
       <Icon name="heart" size={17} filled={saved} />
     </button>
@@ -154,13 +154,17 @@ export function FavoriteButton({ itemId, className = "favorite" }: { itemId: str
 }
 
 export function ItemCard({ item }: { item: Item }) {
-  const owner = getOwner(item.ownerId);
+  const { ownerOf, isMine } = useStore();
+  const owner = ownerOf(item);
+  const mine = isMine(item);
   return (
     <article className="item-card">
       <Link to={`/items/${item.id}`} className="item-link">
         <div className="item-image">
           <img src={photoSrc(item)} alt={item.alt} loading="lazy" />
           <span className="distance">{item.distance}</span>
+          {item.sample && <span className="sample-tag">Sample</span>}
+          {mine && <span className="sample-tag mine-tag">Yours</span>}
         </div>
         <div className="item-info">
           <span className="availability">
@@ -173,15 +177,17 @@ export function ItemCard({ item }: { item: Item }) {
           <div className="item-owner">
             <span>{initials(owner.name)}</span>
             <p>
-              {owner.name}
-              <b>
-                <Icon name="star" size={12} filled /> {owner.rating}
-              </b>
+              {mine ? "You" : owner.name}
+              {owner.rating && (
+                <b>
+                  <Icon name="star" size={12} filled /> {owner.rating}
+                </b>
+              )}
             </p>
           </div>
         </div>
       </Link>
-      <FavoriteButton itemId={item.id} />
+      {!mine && <FavoriteButton itemId={item.id} />}
     </article>
   );
 }

@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Outlet, Route, Routes, useLocation } from "react-router-dom";
+import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { BottomNav, SiteHeader } from "./components";
 import Account from "./pages/Account";
 import Activity from "./pages/Activity";
@@ -11,6 +11,8 @@ import ListItem from "./pages/ListItem";
 import Messages from "./pages/Messages";
 import NotFound from "./pages/NotFound";
 import RequestItem from "./pages/RequestItem";
+import Welcome from "./pages/Welcome";
+import { useStore } from "./store";
 
 const TITLES: [RegExp, string][] = [
   [/^\/explore/, "Explore"],
@@ -22,34 +24,96 @@ const TITLES: [RegExp, string][] = [
   [/^\/activity/, "Activity"],
   [/^\/messages/, "Messages"],
   [/^\/account/, "Account"],
+  [/^\/(welcome|login)/, "Join lendr"],
 ];
 
-function Layout() {
+function usePageTitle() {
   const { pathname } = useLocation();
-  // Detail, request, and confirmation screens use their own sticky action bar on mobile.
-  const focused = /^\/(items|requests)\//.test(pathname);
-  const isForm = pathname === "/list" || /\/edit$/.test(pathname);
-
   useEffect(() => {
     window.scrollTo(0, 0);
     const title = TITLES.find(([pattern]) => pattern.test(pathname))?.[1];
     document.title = title ? `${title} · lendr` : "lendr — Borrow on campus";
   }, [pathname]);
+}
+
+function Splash({ text = "Loading lendr…" }: { text?: string }) {
+  return (
+    <div className="splash" role="status">
+      <span className="brand">
+        lendr<span>.</span>
+      </span>
+      <p>{text}</p>
+    </div>
+  );
+}
+
+function Layout() {
+  const { pathname } = useLocation();
+  const { loading, loadError, refresh, me } = useStore();
+  // Detail, request, and confirmation screens use their own sticky action bar on mobile.
+  const focused = /^\/(items|requests)\//.test(pathname);
+  const isForm = pathname === "/list" || /\/edit$/.test(pathname);
 
   return (
     <div className={`site ${focused ? "is-focused" : ""}`}>
       <SiteHeader />
       <main className="site-main">
-        <Outlet />
+        {loadError ? (
+          <div className="container narrow">
+            <div className="empty-state">
+              <h3>We couldn’t load lendr</h3>
+              <p>{loadError}</p>
+              <button className="primary" onClick={() => void refresh()}>
+                Try again
+              </button>
+            </div>
+          </div>
+        ) : loading || !me ? (
+          <Splash text="Loading listings…" />
+        ) : (
+          <Outlet />
+        )}
       </main>
       {!focused && !isForm && <BottomNav />}
     </div>
   );
 }
 
+function NotConfigured() {
+  return (
+    <div className="splash">
+      <span className="brand">
+        lendr<span>.</span>
+      </span>
+      <p>The database isn’t connected yet. Add the Supabase URL and publishable key in src/supabase.ts.</p>
+    </div>
+  );
+}
+
 export default function App() {
+  const { configured, authReady, session } = useStore();
+  const location = useLocation();
+  usePageTitle();
+
+  if (!configured) return <NotConfigured />;
+  if (!authReady) return <Splash />;
+
+  if (!session) {
+    return (
+      <Routes>
+        <Route path="welcome" element={<Welcome />} />
+        <Route path="login" element={<Welcome initialMode="login" />} />
+        <Route path="*" element={<Navigate to="/welcome" replace state={{ from: location.pathname + location.search }} />} />
+      </Routes>
+    );
+  }
+
+  const from = (location.state as { from?: string } | null)?.from;
+
   return (
     <Routes>
+      <Route path="welcome" element={<Navigate to={from && from !== "/welcome" ? from : "/"} replace />} />
+      <Route path="login" element={<Navigate to="/" replace />} />
       <Route element={<Layout />}>
         <Route index element={<Home />} />
         <Route path="explore" element={<Explore />} />
@@ -60,7 +124,7 @@ export default function App() {
         <Route path="requests/:requestId" element={<Confirmed />} />
         <Route path="activity" element={<Activity />} />
         <Route path="messages" element={<Messages />} />
-        <Route path="messages/:ownerId" element={<Messages />} />
+        <Route path="messages/:threadId" element={<Messages />} />
         <Route path="account" element={<Account />} />
         <Route path="*" element={<NotFound />} />
       </Route>

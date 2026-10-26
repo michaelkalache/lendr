@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { BackLink, FavoriteButton } from "../components";
-import { ME, firstName, getOwner, initials, photoSrc, pickupOf } from "../data";
+import { firstName, initials, photoSrc, pickupOf } from "../data";
 import { Icon } from "../Icon";
 import { useStore } from "../store";
 import NotFound from "./NotFound";
@@ -10,37 +10,61 @@ export default function Detail() {
   const { itemId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const { dispatch, findItem } = useStore();
+  const { findItem, ownerOf, isMine, openThread, removeListing } = useStore();
   const [confirmRemove, setConfirmRemove] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
   const item = findItem(itemId);
   if (!item) return <NotFound />;
-  const owner = getOwner(item.ownerId);
+  const owner = ownerOf(item);
   const ownerFirst = firstName(owner.name);
-  const isMine = item.ownerId === ME;
+  const mine = isMine(item);
   const justPublished = (location.state as { published?: "new" | "updated" } | null)?.published;
 
-  const messageOwner = () => {
-    dispatch({ type: "openThread", ownerId: owner.id, itemId: item.id });
-    navigate(`/messages/${owner.id}`);
+  const messageOwner = async () => {
+    setBusy(true);
+    setError("");
+    const result = await openThread(item.id);
+    setBusy(false);
+    if (result.ok) navigate(`/messages/${result.value}`);
+    else setError(result.error);
   };
 
-  const remove = () => {
-    dispatch({ type: "removeListing", id: item.id });
-    navigate("/account", { replace: true });
+  const remove = async () => {
+    setBusy(true);
+    const result = await removeListing(item.id);
+    setBusy(false);
+    if (result.ok) navigate("/account", { replace: true });
+    else setError(result.error);
   };
+
+  const ownerLine = owner.rating
+    ? `${owner.rating} · ${owner.lends} completed lends`
+    : owner.program
+      ? owner.program
+      : "UCI student";
 
   return (
     <div className="container detail-page">
       <div className="desktop-only">
-        <BackLink to={isMine ? "/account" : "/explore"} label={isMine ? "Back to your listings" : "Back to listings"} />
+        <BackLink to={mine ? "/account" : "/explore"} label={mine ? "Back to your listings" : "Back to listings"} />
       </div>
 
       {justPublished && (
         <div className="publish-banner" role="status">
           <Icon name="check" />
           <span>
-            <b>{justPublished === "new" ? "Your listing is live." : "Listing updated."}</b> Anteaters can now find it in
-            Discover and Explore.
+            <b>{justPublished === "new" ? "Your listing is live." : "Listing updated."}</b> Everyone on lendr can now
+            find it in Discover and Explore.
+          </span>
+        </div>
+      )}
+      {item.sample && (
+        <div className="sample-banner" role="note">
+          <Icon name="shield" />
+          <span>
+            <b>Sample listing.</b> This shows how lendr works. There’s no real lender behind it, so it can’t be
+            requested. <Link to="/explore">See real listings</Link>
           </span>
         </div>
       )}
@@ -56,17 +80,16 @@ export default function Detail() {
             >
               <Icon name="arrow" />
             </button>
-            {!isMine && <FavoriteButton itemId={item.id} className="floating save" />}
+            {!mine && <FavoriteButton itemId={item.id} className="floating save" />}
           </div>
 
           <div className="detail-body">
             <div className="status-row">
               <span className="availability">
-                <i /> {isMine ? "Your listing · live" : "Available now"}
+                <i /> {mine ? "Your listing · live" : item.sample ? "Sample" : "Available"}
               </span>
               <span>
                 <Icon name="map" size={16} /> {item.distance}
-                {isMine ? "" : " away"}
               </span>
             </div>
             <h1>{item.title}</h1>
@@ -78,19 +101,19 @@ export default function Detail() {
               <div className="avatar">{initials(owner.name)}</div>
               <div>
                 <h3>
-                  {isMine ? `${owner.name} (you)` : owner.name}{" "}
+                  {mine ? `${owner.name} (you)` : owner.name}{" "}
                   <span>
-                    <Icon name="shield" size={15} /> UCI verified
+                    <Icon name="shield" size={15} /> UCI email
                   </span>
                 </h3>
                 <p>
-                  <Icon name="star" size={14} filled /> <b>{owner.rating}</b> · {owner.lends} completed lends
+                  {owner.rating && <Icon name="star" size={14} filled />} {ownerLine}
                 </p>
               </div>
             </div>
 
-            {!isMine && (
-              <button className="message-owner" onClick={messageOwner}>
+            {!mine && !item.sample && (
+              <button className="message-owner" onClick={messageOwner} disabled={busy}>
                 <Icon name="message" />
                 <span>
                   <b>Message {ownerFirst}</b>
@@ -98,6 +121,11 @@ export default function Detail() {
                 </span>
                 <Icon name="chevron" />
               </button>
+            )}
+            {error && (
+              <p className="form-error" role="alert">
+                {error}
+              </p>
             )}
 
             <section className="details-block">
@@ -113,7 +141,7 @@ export default function Detail() {
                 </span>
                 <div>
                   <b>{pickupOf(item)}</b>
-                  <p>Exact meetup spot shared after approval</p>
+                  <p>Confirm the exact time and spot in Messages</p>
                 </div>
               </div>
             </section>
@@ -137,7 +165,7 @@ export default function Detail() {
                 </li>
                 <li>
                   <b>Borrower is responsible</b> for verified damage beyond normal wear, up to the agreed repair or
-                  replacement value. Payment is paused during a dispute.
+                  replacement value.
                 </li>
               </ol>
               <p className="policy-limit">
@@ -148,23 +176,23 @@ export default function Detail() {
         </div>
 
         <aside className="split-aside">
-          {isMine ? (
+          {mine ? (
             <div className="action-card">
               <div className="desktop-only action-card-head">
                 <div className="price">
                   <strong>${item.price}</strong> / day
                 </div>
-                <p>This is your listing. Borrowers can request it now.</p>
+                <p>This is your listing. Requests show up in Activity → Lending.</p>
               </div>
               {confirmRemove ? (
                 <div className="remove-confirm">
-                  <p>Remove this listing? It disappears from Discover right away.</p>
+                  <p>Remove this listing? Any open requests for it are closed too.</p>
                   <div>
                     <button className="secondary" onClick={() => setConfirmRemove(false)}>
                       Keep it
                     </button>
-                    <button className="primary danger" onClick={remove}>
-                      Remove
+                    <button className="primary danger" onClick={remove} disabled={busy}>
+                      {busy ? "Removing…" : "Remove"}
                     </button>
                   </div>
                 </div>
@@ -179,20 +207,31 @@ export default function Detail() {
                 </div>
               )}
             </div>
+          ) : item.sample ? (
+            <div className="action-card">
+              <div className="desktop-only action-card-head">
+                <div className="price">
+                  <strong>${item.price}</strong> / day
+                </div>
+                <p>Sample listings can’t be borrowed.</p>
+              </div>
+              <Link className="primary link-button" to="/list">
+                List a real item like this
+              </Link>
+              <p className="action-note">Real listings from Anteaters appear first in Discover.</p>
+            </div>
           ) : (
             <div className="action-card">
               <div className="desktop-only action-card-head">
                 <div className="price">
                   <strong>${item.price}</strong> / day
                 </div>
-                <p>
-                  {ownerFirst} usually responds within {owner.responseMins} minutes
-                </p>
+                <p>{ownerFirst} has 2 hours to approve or decline your request.</p>
               </div>
               <Link className="primary link-button" to={`/items/${item.id}/request`}>
                 Check dates & request
               </Link>
-              <p className="action-note">You won’t be charged until {ownerFirst} accepts.</p>
+              <p className="action-note">Pay {ownerFirst} at pickup. Nothing is charged online.</p>
             </div>
           )}
         </aside>

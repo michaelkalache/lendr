@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { HeroArt, ItemCard } from "../components";
-import { categories, firstName, getOwner, photoSrc } from "../data";
+import { categories, firstName, photoSrc } from "../data";
 import { formatRange } from "../dates";
 import { Icon } from "../Icon";
 import { displayStatus, useStore } from "../store";
@@ -16,7 +16,7 @@ function greeting() {
 export default function Home() {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
-  const { requests, allItems, findItem } = useStore();
+  const { requests, allItems, findItem, ownerOf, me, myListings } = useStore();
   const pending = requests.find((request) => displayStatus(request) === "pending");
   const pendingItem = pending ? findItem(pending.itemId) : undefined;
 
@@ -30,13 +30,15 @@ export default function Home() {
           <div className="campus-pill">
             <Icon name="shield" size={15} /> UCI students only
           </div>
-          <div className="eyebrow">{greeting()}, MAYA</div>
+          <div className="eyebrow">
+            {greeting()}, {firstName(me?.name ?? "").toUpperCase()}
+          </div>
           <h1>
             Borrow on campus.
             <br />
             Keep creating.
           </h1>
-          <p>Verified Anteaters sharing with Anteaters.</p>
+          <p>Anteaters sharing with Anteaters.</p>
           <form
             className="search-row hero-search"
             onSubmit={(event) => {
@@ -69,7 +71,7 @@ export default function Home() {
             <b>
               {pendingItem.title} · {formatRange(pending.start, pending.end)}
             </b>
-            <em>Waiting for {firstName(getOwner(pendingItem.ownerId).name)} to respond</em>
+            <em>Waiting for {firstName(ownerOf(pendingItem).name)} to respond</em>
           </span>
           <Icon name="chevron" />
         </Link>
@@ -94,7 +96,7 @@ export default function Home() {
           <Icon name="plus" size={22} />
         </span>
         <span>
-          <b>Have something sitting unused?</b>
+          <b>{myListings.length ? "Lend something else?" : "Have something sitting unused?"}</b>
           <em>List it in a minute and earn from fellow Anteaters.</em>
         </span>
         <Icon name="chevron" />
@@ -104,7 +106,7 @@ export default function Home() {
         <div className="section-title">
           <div>
             <h2>Available near you</h2>
-            <p>Live listings within 2 miles</p>
+            <p>Newest first · samples are marked</p>
           </div>
           <Link to="/explore" className="text-link">
             See all

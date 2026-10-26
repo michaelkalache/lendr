@@ -378,6 +378,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return { ok: true, value: supabase.storage.from(PHOTO_BUCKET).getPublicUrl(path).data.publicUrl };
   };
 
+  /** Delete a photo we uploaded earlier (best effort: a leftover file is harmless). */
+  const deletePhoto = async (url: string | null | undefined) => {
+    const marker = `/object/public/${PHOTO_BUCKET}/`;
+    if (!url || !url.includes(marker)) return;
+    await supabase.storage.from(PHOTO_BUCKET).remove([decodeURIComponent(url.split(marker)[1])]);
+  };
+
   const saveListing: Store["saveListing"] = async (input, existingId) => {
     if (!userId) return { ok: false, error: "You’re signed out." };
     let photoUrl: string | null = input.photo || null;
@@ -400,13 +407,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       : supabase.from("listings").insert(row).select("id").single();
     const { data, error } = await query;
     if (error) return fail(error);
+    const previousPhoto = existingId ? listings.find((row) => row.id === existingId)?.photo_url : null;
+    if (previousPhoto && previousPhoto !== photoUrl) await deletePhoto(previousPhoto);
     await refresh();
     return { ok: true, value: (data as { id: string }).id };
   };
 
   const removeListing: Store["removeListing"] = async (id) => {
+    const photo = listings.find((row) => row.id === id)?.photo_url;
     const { error } = await supabase.from("listings").delete().eq("id", id);
     if (error) return fail(error);
+    await deletePhoto(photo);
     setListings((current) => current.filter((row) => row.id !== id));
     await refresh();
     return { ok: true, value: undefined };

@@ -10,6 +10,7 @@ import Home from "./pages/Home";
 import ListItem from "./pages/ListItem";
 import Messages from "./pages/Messages";
 import NotFound from "./pages/NotFound";
+import Person from "./pages/Person";
 import RequestItem from "./pages/RequestItem";
 import Welcome from "./pages/Welcome";
 import { useStore } from "./store";
@@ -24,6 +25,7 @@ const TITLES: [RegExp, string][] = [
   [/^\/activity/, "Activity"],
   [/^\/messages/, "Messages"],
   [/^\/account/, "Account"],
+  [/^\/people\//, "Profile"],
   [/^\/(welcome|login)/, "Join lendr"],
 ];
 
@@ -126,6 +128,7 @@ export default function App() {
         <Route path="messages" element={<Messages />} />
         <Route path="messages/:threadId" element={<Messages />} />
         <Route path="account" element={<Account />} />
+        <Route path="people/:personId" element={<Person />} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>

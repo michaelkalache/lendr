@@ -16,7 +16,8 @@ a desktop layout with a top navigation bar, and a mobile layout with the origina
 6. **Activity** (`/activity`) — track, cancel, or follow up; requests expire after 2 hours without a reply
 7. **Messages** (`/messages/:lender`) — chat with the lender, quick replies
 8. **Account** (`/account`) — your listings, saved items, profile, log out
-9. **List an item** (`/list`) — photo upload, category, price, replacement value, pickup spot;
+9. **Profiles** (`/people/:id`) — any lender's public profile and their active listings (tap a name)
+10. **List an item** (`/list`) — photo upload, category, price, replacement value, pickup spot;
    edit or remove it later from the item page (`/items/:id/edit`)
 
 ### Accounts and shared data
@@ -28,7 +29,7 @@ so every teammate sees the same data on any device, and updates arrive live.
 - **Security:** every table uses Row Level Security (`supabase/schema.sql`). People can only edit their own
   listings, only see requests and messages they're part of, and prices are computed by the database.
 - **Requests** expire 2 hours after they're sent if the lender doesn't respond.
-- **Sample listings** (marked *Sample*) show how the site works; they can't be requested.
+- **Sample listings and lenders** (marked *Sample* everywhere) show how the site works; they can't be requested or messaged, and their ratings are examples.
 - **No email confirmation:** Supabase's free email sender only reaches project members, so sign-up is instant.
   The @uci.edu rule is enforced, but owning the address isn't verified. Password reset isn't available yet.
 

@@ -97,20 +97,28 @@ export default function Detail() {
               <strong>${item.price}</strong> / day <span>${item.price * 4} max per week</span>
             </div>
 
-            <div className="owner-card">
+            <Link to={`/people/${owner.id}`} className="owner-card owner-link">
               <div className="avatar">{initials(owner.name)}</div>
               <div>
                 <h3>
                   {mine ? `${owner.name} (you)` : owner.name}{" "}
-                  <span>
-                    <Icon name="shield" size={15} /> UCI email
-                  </span>
+                  {owner.sample ? (
+                    <span className="sample-pill">Sample lender</span>
+                  ) : (
+                    <span>
+                      <Icon name="shield" size={15} /> UCI email
+                    </span>
+                  )}
                 </h3>
                 <p>
                   {owner.rating && <Icon name="star" size={14} filled />} {ownerLine}
+                  {owner.sample ? " (sample stats)" : ""}
                 </p>
               </div>
-            </div>
+              <span className="owner-link-cta">
+                {mine ? "Your profile" : "View profile"} <Icon name="chevron" size={16} />
+              </span>
+            </Link>
 
             {!mine && !item.sample && (
               <button className="message-owner" onClick={messageOwner} disabled={busy}>

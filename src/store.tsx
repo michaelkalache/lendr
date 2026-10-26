@@ -9,7 +9,7 @@ export const REQUEST_TTL_MS = 2 * 60 * 60 * 1000;
 export type RequestStatus = "pending" | "approved" | "declined" | "cancelled";
 export type DisplayStatus = RequestStatus | "expired";
 
-export type Profile = { id: string; name: string; program: string };
+export type Profile = { id: string; name: string; program: string; created_at?: string };
 
 export type BorrowRequest = {
   id: string;
@@ -162,6 +162,8 @@ type Store = {
   findItem: (id: string | undefined) => Item | undefined;
   ownerOf: (item: Item) => Owner;
   person: (id: string) => Owner;
+  /** True when the id belongs to a real member or a sample lender. */
+  personExists: (id: string | undefined) => boolean;
   isMine: (item: Item) => boolean;
   threadFor: (itemId: string, borrowerId: string) => Thread | undefined;
 
@@ -217,7 +219,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const refresh = useCallback(async () => {
     if (!userId) return;
     const [p, l, r, c, m, f] = await Promise.all([
-      supabase.from("profiles").select("id, name, program"),
+      supabase.from("profiles").select("id, name, program, created_at"),
       supabase.from("listings").select("*").order("created_at", { ascending: false }),
       supabase.from("requests").select("*").order("created_at", { ascending: false }),
       supabase.from("conversations").select("*").order("updated_at", { ascending: false }),
@@ -318,9 +320,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const person = useCallback(
     (id: string): Owner => {
-      if (sampleOwners[id]) return sampleOwners[id];
+      if (sampleOwners[id]) return { ...sampleOwners[id], sample: true };
       const profile = profiles[id];
-      return profile ? { id, name: profile.name, program: profile.program } : { id, name: "UCI student" };
+      return profile
+        ? { id, name: profile.name, program: profile.program, joined: profile.created_at }
+        : { id, name: "UCI student" };
     },
     [profiles],
   );
@@ -501,6 +505,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     findItem: (id) => (id ? derived.itemById.get(id) : undefined),
     ownerOf: (item) => person(item.ownerId),
     person,
+    personExists: (id) => Boolean(id && (sampleOwners[id] || profiles[id])),
     isMine: (item) => !item.sample && item.ownerId === userId,
     threadFor: (itemId, borrowerId) =>
       derived.threads.find((thread) => thread.itemId === itemId && thread.borrowerId === borrowerId),

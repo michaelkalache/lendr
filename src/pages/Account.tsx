@@ -165,6 +165,16 @@ export default function Account() {
               </div>
               <Icon name="chevron" />
             </button>
+            <Link to={`/people/${me.id}`}>
+              <span>
+                <Icon name="profile" />
+              </span>
+              <div>
+                <b>View your public profile</b>
+                <p>What other students see when they tap your name</p>
+              </div>
+              <Icon name="chevron" />
+            </Link>
             <Link to="/activity">
               <span>
                 <Icon name="inbox" />

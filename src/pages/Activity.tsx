@@ -142,7 +142,10 @@ function IncomingCard({ request, item }: { request: BorrowRequest; item: Item })
         <div className="avatar violet">{initials(borrower.name)}</div>
         <div>
           <h3>
-            {borrower.name} wants your {item.title}
+            <Link to={`/people/${borrower.id}`} className="person-link">
+              {borrower.name}
+            </Link>{" "}
+            wants your {item.title}
           </h3>
           <p>
             {borrower.program ? `${borrower.program} · ` : ""}

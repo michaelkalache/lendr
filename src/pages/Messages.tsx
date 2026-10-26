@@ -66,15 +66,15 @@ function ThreadView({ thread }: { thread: Thread }) {
         <BackLink to="/messages" label="All messages" />
       </div>
       <div className="conversation-head">
-        <div className="conversation-person">
+        <Link to={`/people/${other.id}`} className="conversation-person">
           <span className="avatar">{initials(other.name)}</span>
           <span>
             <b>{other.name}</b>
             <small>
-              <i /> {iAmLender ? "Borrower" : "Lender"} · {other.program || "UCI student"}
+              <i /> {iAmLender ? "Borrower" : "Lender"} · {other.program || "UCI student"} · View profile
             </small>
           </span>
-        </div>
+        </Link>
         <Link className="chat-item" to={`/items/${item.id}`}>
           <img src={photoSrc(item)} alt="" />
           <span>

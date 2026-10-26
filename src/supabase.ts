@@ -6,8 +6,8 @@ import { createClient } from "@supabase/supabase-js";
  * can read or change is enforced by the Row Level Security rules in supabase/schema.sql.
  * VITE_SUPABASE_URL / VITE_SUPABASE_PUBLISHABLE_KEY environment variables override these.
  */
-const SUPABASE_URL = "";
-const SUPABASE_PUBLISHABLE_KEY = "";
+const SUPABASE_URL = "https://mjqappnkbgdihukjcjez.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_klRZg5I3Kb4OwjBG1inwgQ_y3DeWpes";
 
 const url = (import.meta.env.VITE_SUPABASE_URL as string | undefined) || SUPABASE_URL;
 const key = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined) || SUPABASE_PUBLISHABLE_KEY;

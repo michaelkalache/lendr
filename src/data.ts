@@ -8,6 +8,10 @@ export type Owner = {
   rating?: string;
   lends?: number;
   responseMins?: number;
+  /** ISO date the member joined (real members only). */
+  joined?: string;
+  /** Made-up lender behind the sample listings. */
+  sample?: boolean;
 };
 
 export type Item = {
@@ -42,12 +46,12 @@ export const photos = {
 };
 
 export const sampleOwners: Record<string, Owner> = {
-  jordan: { id: "jordan", name: "Jordan Lee", rating: "4.9", lends: 18, responseMins: 20 },
-  priya: { id: "priya", name: "Priya S.", rating: "5.0", lends: 24, responseMins: 15 },
-  alex: { id: "alex", name: "Alex R.", rating: "4.8", lends: 11, responseMins: 30 },
-  nina: { id: "nina", name: "Nina C.", rating: "4.9", lends: 15, responseMins: 25 },
-  sam: { id: "sam", name: "Sam T.", rating: "5.0", lends: 9, responseMins: 20 },
-  dani: { id: "dani", name: "Dani M.", rating: "4.8", lends: 13, responseMins: 35 },
+  jordan: { id: "jordan", name: "Jordan Lee", program: "Film & Media ’26", rating: "4.9", lends: 18, responseMins: 20 },
+  priya: { id: "priya", name: "Priya S.", program: "Business ’27", rating: "5.0", lends: 24, responseMins: 15 },
+  alex: { id: "alex", name: "Alex R.", program: "Mechanical Eng ’25", rating: "4.8", lends: 11, responseMins: 30 },
+  nina: { id: "nina", name: "Nina C.", program: "Architecture ’26", rating: "4.9", lends: 15, responseMins: 25 },
+  sam: { id: "sam", name: "Sam T.", program: "Earth Sciences ’27", rating: "5.0", lends: 9, responseMins: 20 },
+  dani: { id: "dani", name: "Dani M.", program: "Biology ’28", rating: "4.8", lends: 13, responseMins: 35 },
 };
 
 const rawSamples: Omit<Item, "sample">[] = [
@@ -122,6 +126,68 @@ const rawSamples: Omit<Item, "sample">[] = [
     alt: "Rolled sleeping bag outdoors",
     description: "Lightweight three-season sleeping bag, cleaned after every borrow.",
     coverage: 110,
+  },
+  // Extra sample listings so sample lender profiles show more than one item. No photos: they use the
+  // category illustration so nothing pretends to be a real item photo.
+  {
+    id: "sample-portable-screen",
+    title: "Portable 60″ Screen",
+    category: "Projectors",
+    price: 4,
+    ownerId: "jordan",
+    distance: "0.4 mi",
+    photo: "",
+    alt: "Sample listing: portable projector screen",
+    description: "Pop-up tripod screen that pairs with the mini projector. Folds into a shoulder bag.",
+    coverage: 90,
+  },
+  {
+    id: "sample-bluetooth-speaker",
+    title: "Bluetooth Party Speaker",
+    category: "Tools",
+    price: 5,
+    ownerId: "jordan",
+    distance: "0.4 mi",
+    photo: "",
+    alt: "Sample listing: bluetooth speaker",
+    description: "Loud enough for a club event in a classroom. Charger and aux cable included.",
+    coverage: 150,
+  },
+  {
+    id: "sample-camp-stove",
+    title: "Backpacking Stove Kit",
+    category: "Outdoors",
+    price: 4,
+    ownerId: "sam",
+    distance: "1.1 mi",
+    photo: "",
+    alt: "Sample listing: camp stove kit",
+    description: "Compact stove, pot, and windscreen. Fuel canister not included.",
+    coverage: 80,
+  },
+  {
+    id: "sample-headlamps",
+    title: "Headlamp 2-Pack",
+    category: "Outdoors",
+    price: 2,
+    ownerId: "sam",
+    distance: "1.1 mi",
+    photo: "",
+    alt: "Sample listing: two headlamps",
+    description: "Two rechargeable headlamps with red-light mode. Charged before every borrow.",
+    coverage: 40,
+  },
+  {
+    id: "sample-clicker",
+    title: "Presentation Clicker",
+    category: "Projectors",
+    price: 2,
+    ownerId: "priya",
+    distance: "0.8 mi",
+    photo: "",
+    alt: "Sample listing: presentation clicker",
+    description: "Wireless slide clicker with laser pointer. USB receiver works with Mac and Windows.",
+    coverage: 35,
   },
 ];
 

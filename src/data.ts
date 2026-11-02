@@ -31,6 +31,10 @@ export type Item = {
   createdAt?: string;
   /** Built-in example listing with no real person behind it: can be browsed, not borrowed. */
   sample?: boolean;
+  /** For bundles: ids of the items included. */
+  bundle?: string[];
+  /** Set when the listing is hidden pending review (only its owner still sees it). */
+  hiddenAt?: string;
 };
 
 const unsplash = (id: string) =>
@@ -189,6 +193,33 @@ const rawSamples: Omit<Item, "sample">[] = [
     description: "Wireless slide clicker with laser pointer. USB receiver works with Mac and Windows.",
     coverage: 35,
   },
+  // Sample bundles: several items from one lender, borrowed together for less.
+  {
+    id: "sample-movie-night-bundle",
+    title: "Movie Night Bundle",
+    category: "Projectors",
+    price: 14,
+    ownerId: "jordan",
+    distance: "0.4 mi",
+    photo: "",
+    alt: "Sample bundle: projector, screen, and speaker",
+    description: "Everything for an outdoor screening or club movie night: the Epson mini projector, the 60″ pop-up screen, and the Bluetooth speaker, picked up together.",
+    coverage: 520,
+    bundle: ["epson-mini-projector", "sample-portable-screen", "sample-bluetooth-speaker"],
+  },
+  {
+    id: "sample-weekend-camping-bundle",
+    title: "Weekend Camping Bundle",
+    category: "Outdoors",
+    price: 10,
+    ownerId: "sam",
+    distance: "1.1 mi",
+    photo: "",
+    alt: "Sample bundle: tent, stove kit, and headlamps",
+    description: "A two-night trip in one pickup: the 2-person tent, the backpacking stove kit, and two headlamps.",
+    coverage: 340,
+    bundle: ["two-person-tent", "sample-camp-stove", "sample-headlamps"],
+  },
 ];
 
 export const sampleItems: Item[] = rawSamples.map((item) => ({ ...item, sample: true }));
@@ -208,6 +239,20 @@ const SYMBOLS: Record<Category, string> = { Projectors: "▱", Tools: "⌁", Out
 /** The item's photo, or a category illustration when the lender didn't upload one. */
 export function photoSrc(item: Item) {
   if (item.photo) return item.photo;
+  if (item.bundle?.length) {
+    const parts = item.bundle
+      .map((id) => sampleItems.find((entry) => entry.id === id))
+      .filter((entry): entry is Item => Boolean(entry));
+    const tiles = parts
+      .map((part, i) => {
+        const x = 70 + i * 95;
+        const rot = [-8, 3, -3][i % 3];
+        return `<g transform="rotate(${rot} ${x + 45} 150)"><rect x="${x}" y="95" width="90" height="110" rx="16" fill="#fff" stroke="#c9dbe8" stroke-width="2"/><text x="${x + 45}" y="150" font-family="sans-serif" font-size="46" fill="#0064a4" text-anchor="middle" dominant-baseline="central">${SYMBOLS[part.category]}</text></g>`;
+      })
+      .join("");
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><rect width="400" height="300" fill="#eaf3f9"/><circle cx="330" cy="40" r="70" fill="none" stroke="#ffcf55" stroke-width="22" opacity=".5"/>${tiles}</svg>`;
+    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+  }
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><rect width="400" height="300" fill="#eaf3f9"/><circle cx="330" cy="40" r="70" fill="none" stroke="#ffcf55" stroke-width="22" opacity=".5"/><text x="200" y="150" font-family="sans-serif" font-size="110" fill="#0064a4" text-anchor="middle" dominant-baseline="central">${SYMBOLS[item.category]}</text></svg>`;
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
@@ -248,3 +293,32 @@ export function rentalCost(price: number, days: number) {
   const rest = days % 7;
   return weeks * price * 4 + Math.min(rest * price, price * 4);
 }
+
+/** Bundles that include this item (samples only for now). */
+export function bundlesContaining(itemId: string, items: Item[]) {
+  return items.filter((item) => item.bundle?.includes(itemId));
+}
+
+/** How much a bundle saves per day versus borrowing its items separately. */
+export function bundleSavings(bundle: Item, items: Item[]) {
+  const separate = (bundle.bundle ?? [])
+    .map((id) => items.find((item) => item.id === id)?.price ?? 0)
+    .reduce((sum, price) => sum + price, 0);
+  return { separate, saves: Math.max(0, separate - bundle.price) };
+}
+
+/* ───────── Sample reviews (examples only, always labeled "Sample") ───────── */
+export type SampleReview = { itemId: string; author: string; rating: number; body: string; date: string };
+
+export const sampleReviews: SampleReview[] = [
+  { itemId: "epson-mini-projector", author: "Maya K.", rating: 5, body: "Bright enough for a dorm lounge with the lights half on. HDMI cable and case were included like the listing said.", date: "2026-10-04" },
+  { itemId: "epson-mini-projector", author: "Chris P.", rating: 5, body: "Used it for a club presentation. Easy pickup at the Student Center.", date: "2026-09-21" },
+  { itemId: "epson-mini-projector", author: "Leah W.", rating: 4, body: "Works great. The remote needed new batteries, so bring a couple AAAs.", date: "2026-09-12" },
+  { itemId: "two-person-tent", author: "Omar F.", rating: 5, body: "Set up in ten minutes at Crystal Cove. Stayed dry through a light drizzle.", date: "2026-10-11" },
+  { itemId: "two-person-tent", author: "Grace L.", rating: 4, body: "Clean and complete. A little snug for two people with big packs.", date: "2026-09-28" },
+  { itemId: "cordless-drill", author: "Ethan B.", rating: 5, body: "Battery lasted a whole afternoon of hanging shelves.", date: "2026-10-02" },
+  { itemId: "projector-and-screen", author: "Sofia R.", rating: 5, body: "Perfect for our film club screening. The screen packs down small.", date: "2026-10-09" },
+  { itemId: "sample-movie-night-bundle", author: "Daniel T.", rating: 5, body: "Ran an outdoor movie night with this. One pickup instead of three was the best part.", date: "2026-10-15" },
+  { itemId: "sample-movie-night-bundle", author: "Ava M.", rating: 4, body: "Speaker could be louder outdoors, but everything worked together out of the box.", date: "2026-10-01" },
+  { itemId: "sample-weekend-camping-bundle", author: "Noah S.", rating: 5, body: "Had everything for a night at Joshua Tree except food. Headlamps were fully charged.", date: "2026-10-18" },
+];

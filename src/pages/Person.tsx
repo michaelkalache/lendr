@@ -3,6 +3,7 @@ import { BackLink, EmptyState, ItemCard } from "../components";
 import { firstName, initials } from "../data";
 import { Icon } from "../Icon";
 import { useStore } from "../store";
+import { ReportButton } from "../trust";
 import NotFound from "./NotFound";
 
 const joinedLabel = (iso?: string) =>
@@ -10,12 +11,13 @@ const joinedLabel = (iso?: string) =>
 
 export default function Person() {
   const { personId } = useParams();
-  const { person, personExists, allItems, me } = useStore();
+  const { person, personExists, allItems, me, lenderRating } = useStore();
   if (!personId || !personExists(personId)) return <NotFound />;
   const profile = person(personId);
   const first = firstName(profile.name);
   const listings = allItems.filter((item) => item.ownerId === personId);
   const isMe = personId === me?.id;
+  const rating = profile.sample ? null : lenderRating(personId);
 
   return (
     <div className="container person-page">
@@ -70,12 +72,20 @@ export default function Person() {
             </div>
           </>
         ) : (
-          <div>
-            <strong>
-              {profile.joined ? new Date(profile.joined).toLocaleDateString("en-US", { month: "short", year: "numeric" }) : "—"}
-            </strong>
-            <span>Member since</span>
-          </div>
+          <>
+            <div>
+              <strong>{rating ? rating.average.toFixed(1) : "—"}</strong>
+              <span>
+                <Icon name="star" size={13} filled /> {rating ? `${rating.count} item ${rating.count === 1 ? "review" : "reviews"}` : "No reviews yet"}
+              </span>
+            </div>
+            <div>
+              <strong>
+                {profile.joined ? new Date(profile.joined).toLocaleDateString("en-US", { month: "short", year: "numeric" }) : "—"}
+              </strong>
+              <span>Member since</span>
+            </div>
+          </>
         )}
       </div>
 
@@ -106,6 +116,15 @@ export default function Person() {
           />
         )}
       </section>
+
+      {!isMe && !profile.sample && (
+        <div className="report-row">
+          <ReportButton target={{ userId: personId }} name={profile.name} />
+          <Link to="/safety" className="text-link small">
+            How we keep lendr safe
+          </Link>
+        </div>
+      )}
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { firstName, initials, photoSrc, pickupOf } from "../data";
 import { formatTime, formatWhen } from "../dates";
 import { Icon } from "../Icon";
 import { useStore, type ChatMessage, type Thread } from "../store";
+import { ReportButton } from "../trust";
 
 function describeSystem(message: ChatMessage, actor: string) {
   const text = message.text.charAt(0).toLowerCase() + message.text.slice(1);
@@ -86,6 +87,11 @@ function ThreadView({ thread }: { thread: Thread }) {
         </Link>
       </div>
 
+      {!other.sample && (
+        <div className="thread-report">
+          <ReportButton target={{ userId: other.id }} name={other.name} />
+        </div>
+      )}
       <div className="chat-scroll" ref={scrollRef}>
         <div className="chat-thread" aria-live="polite">
           {thread.messages.length === 0 && (

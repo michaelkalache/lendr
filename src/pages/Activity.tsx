@@ -5,6 +5,7 @@ import { firstName, initials, photoSrc, pickupOf, type Item } from "../data";
 import { formatRange, formatTime, formatWhen } from "../dates";
 import { Icon } from "../Icon";
 import { REQUEST_TTL_MS, displayStatus, useStore, type BorrowRequest, type DisplayStatus } from "../store";
+import { ReviewForm, Stars } from "../trust";
 
 const STATUS_LABEL: Record<DisplayStatus, string> = {
   pending: "PENDING",
@@ -19,12 +20,16 @@ const expiresAt = (request: BorrowRequest) =>
 
 function RequestCard({ request, item }: { request: BorrowRequest; item: Item }) {
   const navigate = useNavigate();
-  const { ownerOf, threadFor, setRequestStatus } = useStore();
+  const { ownerOf, threadFor, setRequestStatus, reviewForRequest } = useStore();
+  const [reviewing, setReviewing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const ownerFirst = firstName(ownerOf(item).name);
   const status = displayStatus(request);
   const thread = threadFor(item.id, request.borrowerId);
+  const review = reviewForRequest(request.id);
+  // Reviews open once the borrow has started.
+  const canReview = request.start <= new Date().toISOString().slice(0, 10);
 
   const cancel = async () => {
     setBusy(true);
@@ -100,14 +105,29 @@ function RequestCard({ request, item }: { request: BorrowRequest; item: Item }) 
             </p>
           )}
           {status === "approved" && thread ? (
-            <Link className="primary link-button" to={`/messages/${thread.id}`}>
-              <Icon name="message" /> Plan pickup
+            <Link className={`${canReview && !review ? "secondary" : "primary"} link-button`} to={`/messages/${thread.id}`}>
+              <Icon name="message" /> {canReview ? "Messages" : "Plan pickup"}
             </Link>
           ) : (
             <button className="secondary" onClick={() => navigate(`/explore?q=${encodeURIComponent(item.category)}`)}>
               Find similar items
             </button>
           )}
+          {status === "approved" && canReview && !review && !reviewing && (
+            <button className="primary" onClick={() => setReviewing(true)}>
+              <Icon name="star" size={16} /> Rate this item
+            </button>
+          )}
+        </div>
+      )}
+      {status === "approved" && reviewing && !review && (
+        <div className="card-review">
+          <ReviewForm requestId={request.id} itemTitle={item.title} onDone={() => setReviewing(false)} />
+        </div>
+      )}
+      {review && (
+        <div className="card-reviewed">
+          <Stars value={review.rating} /> <span>You reviewed this item{review.body ? `: “${review.body}”` : "."}</span>
         </div>
       )}
       {error && (
@@ -120,7 +140,7 @@ function RequestCard({ request, item }: { request: BorrowRequest; item: Item }) 
 }
 
 function IncomingCard({ request, item }: { request: BorrowRequest; item: Item }) {
-  const { person, threadFor, setRequestStatus } = useStore();
+  const { person, threadFor, setRequestStatus, reviewForRequest } = useStore();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const borrower = person(request.borrowerId);
@@ -197,6 +217,15 @@ function IncomingCard({ request, item }: { request: BorrowRequest; item: Item })
             {status === "cancelled" && `${borrowerFirst} cancelled this request.`}
             {status === "expired" && "This request expired after 2 hours without a response."}
           </p>
+        </div>
+      )}
+      {reviewForRequest(request.id) && (
+        <div className="card-reviewed in-lender">
+          <Stars value={reviewForRequest(request.id)!.rating} />{" "}
+          <span>
+            {borrowerFirst} reviewed your {item.title}
+            {reviewForRequest(request.id)!.body ? `: “${reviewForRequest(request.id)!.body}”` : "."}
+          </span>
         </div>
       )}
       {thread && (

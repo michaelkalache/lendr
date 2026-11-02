@@ -16,7 +16,8 @@ function greeting() {
 export default function Home() {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
-  const { requests, allItems, findItem, ownerOf, me, myListings } = useStore();
+  const { requests, allItems, findItem, ownerOf, me, myListings, hasRecoveryCode, makeRecoveryCode } = useStore();
+  const bundles = allItems.filter((item) => item.bundle);
   const pending = requests.find((request) => displayStatus(request) === "pending");
   const pendingItem = pending ? findItem(pending.itemId) : undefined;
 
@@ -77,6 +78,18 @@ export default function Home() {
         </Link>
       )}
 
+      {hasRecoveryCode === false && (
+        <div className="recovery-warning home-recovery">
+          <Icon name="key" />
+          <span>
+            <b>Set up password recovery.</b> Get a one-time code so you can reset your password if you forget it.
+          </span>
+          <button className="secondary" onClick={() => void makeRecoveryCode()}>
+            Get my code
+          </button>
+        </div>
+      )}
+
       <section className="home-section">
         <div className="section-title">
           <h2>Popular on campus</h2>
@@ -102,6 +115,22 @@ export default function Home() {
         <Icon name="chevron" />
       </Link>
 
+      {bundles.length > 0 && (
+        <section className="home-section">
+          <div className="section-title">
+            <div>
+              <h2>Bundles</h2>
+              <p>Borrow a set together for less · samples for now</p>
+            </div>
+          </div>
+          <div className="item-grid">
+            {bundles.map((item) => (
+              <ItemCard key={item.id} item={item} />
+            ))}
+          </div>
+        </section>
+      )}
+
       <section className="home-section">
         <div className="section-title">
           <div>
@@ -113,7 +142,7 @@ export default function Home() {
           </Link>
         </div>
         <div className="item-grid">
-          {allItems.map((item) => (
+          {allItems.filter((item) => !item.bundle).map((item) => (
             <ItemCard key={item.id} item={item} />
           ))}
         </div>

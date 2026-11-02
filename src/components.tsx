@@ -154,9 +154,10 @@ export function FavoriteButton({ itemId, className = "favorite" }: { itemId: str
 }
 
 export function ItemCard({ item }: { item: Item }) {
-  const { ownerOf, isMine } = useStore();
+  const { ownerOf, isMine, itemRating } = useStore();
   const owner = ownerOf(item);
   const mine = isMine(item);
+  const rating = itemRating(item.id);
   return (
     <article className="item-card">
       <Link to={`/items/${item.id}`} className="item-link">
@@ -164,26 +165,31 @@ export function ItemCard({ item }: { item: Item }) {
           <img src={photoSrc(item)} alt={item.alt} loading="lazy" />
           <span className="distance">{item.distance}</span>
           {item.sample && <span className="sample-tag">Sample</span>}
-          {mine && <span className="sample-tag mine-tag">Yours</span>}
+          {mine && <span className="sample-tag mine-tag">{item.hiddenAt ? "Hidden" : "Yours"}</span>}
+          {item.bundle && (
+            <span className="bundle-chip">
+              <Icon name="layers" size={12} /> Bundle · {item.bundle.length}
+            </span>
+          )}
         </div>
         <div className="item-info">
           <span className="availability">
             <i /> Available
           </span>
           <h3>{item.title}</h3>
-          <p>
-            <strong>${item.price}</strong> / day
+          <p className="item-price-row">
+            <span>
+              <strong>${item.price}</strong> / day
+            </span>
+            {rating && (
+              <span className="item-rating" aria-label={`Rated ${rating.average} from ${rating.count} reviews`}>
+                <Icon name="star" size={12} filled /> {rating.average.toFixed(1)} <em>({rating.count})</em>
+              </span>
+            )}
           </p>
           <div className="item-owner">
             <span>{initials(owner.name)}</span>
-            <p>
-              {mine ? "You" : owner.name}
-              {owner.rating && (
-                <b>
-                  <Icon name="star" size={12} filled /> {owner.rating}
-                </b>
-              )}
-            </p>
+            <p>{mine ? "You" : owner.name}</p>
           </div>
         </div>
       </Link>

@@ -12,7 +12,9 @@ import Messages from "./pages/Messages";
 import NotFound from "./pages/NotFound";
 import Person from "./pages/Person";
 import RequestItem from "./pages/RequestItem";
+import Safety from "./pages/Safety";
 import Welcome from "./pages/Welcome";
+import { RecoveryCodeModal } from "./trust";
 import { useStore } from "./store";
 
 const TITLES: [RegExp, string][] = [
@@ -26,6 +28,7 @@ const TITLES: [RegExp, string][] = [
   [/^\/messages/, "Messages"],
   [/^\/account/, "Account"],
   [/^\/people\//, "Profile"],
+  [/^\/safety/, "Trust & safety"],
   [/^\/(welcome|login)/, "Join lendr"],
 ];
 
@@ -113,6 +116,8 @@ export default function App() {
   const from = (location.state as { from?: string } | null)?.from;
 
   return (
+    <>
+    <RecoveryCodeModal />
     <Routes>
       <Route path="welcome" element={<Navigate to={from && from !== "/welcome" ? from : "/"} replace />} />
       <Route path="login" element={<Navigate to="/" replace />} />
@@ -129,8 +134,10 @@ export default function App() {
         <Route path="messages/:threadId" element={<Messages />} />
         <Route path="account" element={<Account />} />
         <Route path="people/:personId" element={<Person />} />
+        <Route path="safety" element={<Safety />} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>
+    </>
   );
 }

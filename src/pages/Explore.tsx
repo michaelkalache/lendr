@@ -51,6 +51,9 @@ export default function Explore() {
             {category.name}
           </button>
         ))}
+        <button className={normalized === "bundle" ? "active" : ""} onClick={() => setQuery("Bundle")}>
+          Bundles
+        </button>
       </div>
 
       <div className="explore-heading">

@@ -9,6 +9,10 @@ export type IconName =
   | "check"
   | "chevron"
   | "clock"
+  | "copy"
+  | "flag"
+  | "key"
+  | "layers"
   | "heart"
   | "home"
   | "inbox"
@@ -43,6 +47,25 @@ const paths: Record<IconName, ReactNode> = {
     <>
       <circle cx="12" cy="12" r="9" />
       <path d="M12 7v5l3 2" />
+    </>
+  ),
+  copy: (
+    <>
+      <rect x="9" y="9" width="12" height="12" rx="2" />
+      <path d="M5 15V5a2 2 0 0 1 2-2h10" />
+    </>
+  ),
+  flag: <path d="M5 21V4m0 0h12l-2 4 2 4H5" />,
+  key: (
+    <>
+      <circle cx="8" cy="15" r="4" />
+      <path d="m11 12 9-9M16 7l3 3M14 9l2 2" />
+    </>
+  ),
+  layers: (
+    <>
+      <path d="m12 3 9 5-9 5-9-5Z" />
+      <path d="m3 13 9 5 9-5" />
     </>
   ),
   heart: <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1.1L12 21l7.8-7.5a5.5 5.5 0 0 0 1-8.9Z" />,

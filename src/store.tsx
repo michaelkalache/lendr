@@ -1,6 +1,6 @@
 import type { Session } from "@supabase/supabase-js";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { sampleItems, sampleOwners, type Category, type Item, type Owner } from "./data";
+import { sampleItems, sampleOwners, sampleReviews, type Category, type Item, type Owner } from "./data";
 import { formatRange } from "./dates";
 import { PHOTO_BUCKET, supabase, supabaseConfigured } from "./supabase";
 
@@ -53,7 +53,25 @@ export type ListingInput = {
   photo: string;
 };
 
-type Result<T = void> = { ok: true; value: T } | { ok: false; error: string };
+export type Result<T = void> = { ok: true; value: T } | { ok: false; error: string };
+
+export type Review = {
+  id: string;
+  itemId: string;
+  requestId?: string;
+  authorId?: string;
+  authorName: string;
+  rating: number;
+  body: string;
+  at: string;
+  /** Example review on a sample listing. */
+  sample?: boolean;
+};
+
+export type Rating = { average: number; count: number; sample: boolean };
+
+export type ReportReason = "prohibited" | "unsafe" | "scam" | "harassment" | "fake_account" | "other";
+export type MyReport = { id: string; listingId: string | null; userId: string | null; createdAt: string };
 
 /* ───────── Row shapes from the database ───────── */
 type ListingRow = {
@@ -67,6 +85,7 @@ type ListingRow = {
   pickup: string;
   photo_url: string | null;
   created_at: string;
+  hidden_at: string | null;
 };
 type RequestRow = {
   id: string;
@@ -79,6 +98,8 @@ type RequestRow = {
   status: RequestStatus;
   created_at: string;
 };
+type ReviewRow = { id: string; request_id: string; listing_id: string; reviewer_id: string; rating: number; body: string; created_at: string };
+type ReportRow = { id: string; listing_id: string | null; user_id: string | null; created_at: string };
 type ConversationRow = { id: string; listing_id: string; borrower_id: string; owner_id: string; updated_at: string };
 type MessageRow = { id: string; conversation_id: string; sender_id: string; body: string; kind: "text" | "system"; created_at: string };
 
@@ -95,6 +116,7 @@ const toItem = (row: ListingRow): Item => ({
   ownerId: row.owner_id,
   distance: "On campus",
   createdAt: row.created_at,
+  hiddenAt: row.hidden_at ?? undefined,
 });
 
 const toRequest = (row: RequestRow): BorrowRequest => ({
@@ -120,7 +142,20 @@ export function friendlyError(error: { message?: string } | null | undefined): s
   if (/password should be at least/i.test(message)) return "Use a password with at least 8 characters.";
   if (/rate limit|too many requests/i.test(message)) return "Too many attempts. Wait a minute and try again.";
   if (/failed to fetch|network/i.test(message)) return "Can’t reach the server. Check your connection and try again.";
+  if (/invalid input syntax|violates check constraint "reviews_rating/i.test(message)) return "Pick a rating from 1 to 5 stars.";
+  if (/reports_once_per/i.test(message)) return "You’ve already reported this.";
+  if (/reviews_request_id_key/i.test(message)) return "You’ve already reviewed this borrow.";
+  if (/same_password|should be different/i.test(message)) return "Choose a password different from your current one.";
   const known = [
+    "You can't report your own listing",
+    "You can't report yourself",
+    "You can only review items you borrowed",
+    "You can review an item once the lender approves your borrow",
+    "You can review this item once your borrow starts",
+    "This listing is under review and can't be requested right now",
+    "This listing is under review and can't be messaged about right now",
+    "Too many reset attempts for this email. Try again in an hour",
+    "Use a password with at least 8 characters",
     "You can't request your own item",
     "Pick a start date that isn't in the past",
     "This request is already closed",
@@ -159,7 +194,20 @@ type Store = {
   threads: Thread[];
   activeRequestCount: number;
 
+  /** Whether the signed-in person has a password recovery code (null while unknown). */
+  hasRecoveryCode: boolean | null;
+  /** A freshly made recovery code to show once. */
+  recoveryCodeToShow: string | null;
+  dismissRecoveryCode: () => void;
+  myReports: MyReport[];
+
   findItem: (id: string | undefined) => Item | undefined;
+  reviewsFor: (itemId: string) => Review[];
+  itemRating: (itemId: string) => Rating | null;
+  /** Average of item reviews across a lender's real listings. */
+  lenderRating: (ownerId: string) => Rating | null;
+  reviewForRequest: (requestId: string) => Review | undefined;
+  reportFor: (target: { listingId?: string; userId?: string }) => MyReport | undefined;
   ownerOf: (item: Item) => Owner;
   person: (id: string) => Owner;
   /** True when the id belongs to a real member or a sample lender. */
@@ -178,6 +226,12 @@ type Store = {
   setRequestStatus: (id: string, status: "approved" | "declined" | "cancelled") => Promise<Result>;
   openThread: (itemId: string) => Promise<Result<string>>;
   sendMessage: (threadId: string, text: string, kind?: "text" | "system") => Promise<Result>;
+  submitReview: (requestId: string, rating: number, body: string) => Promise<Result>;
+  deleteReview: (id: string) => Promise<Result>;
+  report: (target: { listingId?: string; userId?: string }, reason: ReportReason, details: string) => Promise<Result>;
+  resetPassword: (email: string, code: string, newPassword: string) => Promise<Result>;
+  changePassword: (newPassword: string) => Promise<Result>;
+  makeRecoveryCode: () => Promise<Result<string>>;
   refresh: () => Promise<void>;
 };
 
@@ -199,6 +253,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [conversations, setConversations] = useState<ConversationRow[]>([]);
   const [messages, setMessages] = useState<MessageRow[]>([]);
   const [favorites, setFavorites] = useState<string[]>([]);
+  const [reviewRows, setReviewRows] = useState<ReviewRow[]>([]);
+  const [reportRows, setReportRows] = useState<ReportRow[]>([]);
+  const [hasRecoveryCode, setHasRecoveryCode] = useState<boolean | null>(null);
+  const [recoveryCodeToShow, setRecoveryCodeToShow] = useState<string | null>(null);
   const userId = session?.user.id ?? null;
   const loadedFor = useRef<string | null>(null);
 
@@ -218,15 +276,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   /* Load everything this person can see. The data set is small (one campus), so we fetch it all. */
   const refresh = useCallback(async () => {
     if (!userId) return;
-    const [p, l, r, c, m, f] = await Promise.all([
+    const [p, l, r, c, m, f, rv, rp, rc] = await Promise.all([
       supabase.from("profiles").select("id, name, program, created_at"),
       supabase.from("listings").select("*").order("created_at", { ascending: false }),
       supabase.from("requests").select("*").order("created_at", { ascending: false }),
       supabase.from("conversations").select("*").order("updated_at", { ascending: false }),
       supabase.from("messages").select("*").order("created_at", { ascending: true }),
       supabase.from("favorites").select("listing_id"),
+      supabase.from("reviews").select("*").order("created_at", { ascending: false }),
+      supabase.from("reports").select("id, listing_id, user_id, created_at"),
+      supabase.rpc("has_recovery_code"),
     ]);
-    const error = p.error || l.error || r.error || c.error || m.error || f.error;
+    const error = p.error || l.error || r.error || c.error || m.error || f.error || rv.error || rp.error;
     if (error) {
       setLoadError(friendlyError(error));
       return;
@@ -238,6 +299,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setConversations(c.data as ConversationRow[]);
     setMessages(m.data as MessageRow[]);
     setFavorites((f.data as { listing_id: string }[]).map((row) => row.listing_id));
+    setReviewRows(rv.data as ReviewRow[]);
+    setReportRows(rp.data as ReportRow[]);
+    if (!rc.error) setHasRecoveryCode(Boolean(rc.data));
   }, [userId]);
 
   useEffect(() => {
@@ -249,6 +313,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setConversations([]);
       setMessages([]);
       setFavorites([]);
+      setReviewRows([]);
+      setReportRows([]);
+      setHasRecoveryCode(null);
       return;
     }
     if (loadedFor.current === userId) return;
@@ -315,8 +382,41 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const activeRequestCount =
       requests.filter((request) => displayStatus(request) === "pending").length +
       incoming.filter((request) => displayStatus(request) === "pending").length;
-    return { allItems, itemById, myListings, requests, incoming, threads, activeRequestCount };
-  }, [listings, requestRows, conversations, messages, userId]);
+    const reviews: Review[] = [
+      ...reviewRows.map((row) => ({
+        id: row.id,
+        itemId: row.listing_id,
+        requestId: row.request_id,
+        authorId: row.reviewer_id,
+        authorName: "",
+        rating: row.rating,
+        body: row.body,
+        at: row.created_at,
+      })),
+      ...sampleReviews.map((row, i) => ({
+        id: `sample-review-${i}`,
+        itemId: row.itemId,
+        authorName: row.author,
+        rating: row.rating,
+        body: row.body,
+        at: `${row.date}T12:00:00Z`,
+        sample: true,
+      })),
+    ];
+    const reviewsByItem = new Map<string, Review[]>();
+    for (const review of reviews) {
+      const list = reviewsByItem.get(review.itemId) ?? [];
+      list.push(review);
+      reviewsByItem.set(review.itemId, list);
+    }
+    return { allItems, itemById, myListings, requests, incoming, threads, activeRequestCount, reviews, reviewsByItem, realItems };
+  }, [listings, requestRows, conversations, messages, reviewRows, userId]);
+
+  const summarize = (list: Review[] | undefined): Rating | null => {
+    if (!list?.length) return null;
+    const average = list.reduce((sum, review) => sum + review.rating, 0) / list.length;
+    return { average: Math.round(average * 10) / 10, count: list.length, sample: list.every((review) => review.sample) };
+  };
 
   const person = useCallback(
     (id: string): Owner => {
@@ -340,6 +440,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     // Supabase hides "already registered" behind a fake success when email confirmation is on.
     if (data.user && data.user.identities?.length === 0)
       return { ok: false, error: "An account with this email already exists. Log in instead." };
+    if (data.session) {
+      const code = await supabase.rpc("create_recovery_code");
+      if (!code.error && code.data) {
+        setHasRecoveryCode(true);
+        setRecoveryCodeToShow(code.data as string);
+      }
+    }
     return { ok: true, value: { needsConfirmation: !data.session } };
   };
 
@@ -496,6 +603,65 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return { ok: true, value: undefined };
   };
 
+  const makeRecoveryCode: Store["makeRecoveryCode"] = async () => {
+    const { data, error } = await supabase.rpc("create_recovery_code");
+    if (error) return fail(error);
+    setHasRecoveryCode(true);
+    setRecoveryCodeToShow(data as string);
+    return { ok: true, value: data as string };
+  };
+
+  const resetPassword: Store["resetPassword"] = async (email, code, newPassword) => {
+    const cleanEmail = email.trim().toLowerCase();
+    const { data, error } = await supabase.rpc("reset_password_with_code", {
+      p_email: cleanEmail,
+      p_code: code,
+      p_new_password: newPassword,
+    });
+    if (error) return fail(error);
+    if (!data) return { ok: false, error: "That email and recovery code don’t match. Check the code and try again." };
+    const signedIn = await supabase.auth.signInWithPassword({ email: cleanEmail, password: newPassword });
+    if (signedIn.error) return fail(signedIn.error);
+    // The old code is used up: give them a fresh one right away.
+    const { data: fresh } = await supabase.rpc("create_recovery_code");
+    if (fresh) setRecoveryCodeToShow(fresh as string);
+    return { ok: true, value: undefined };
+  };
+
+  const changePassword: Store["changePassword"] = async (newPassword) => {
+    if (newPassword.length < 8) return { ok: false, error: "Use a password with at least 8 characters." };
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    return error ? fail(error) : { ok: true, value: undefined };
+  };
+
+  const submitReview: Store["submitReview"] = async (requestId, rating, body) => {
+    if (rating < 1 || rating > 5) return { ok: false, error: "Pick a rating from 1 to 5 stars." };
+    const { error } = await supabase.from("reviews").insert({ request_id: requestId, rating, body: body.trim() });
+    if (error) return fail(error);
+    await refresh();
+    return { ok: true, value: undefined };
+  };
+
+  const deleteReview: Store["deleteReview"] = async (id) => {
+    const { error } = await supabase.from("reviews").delete().eq("id", id);
+    if (error) return fail(error);
+    await refresh();
+    return { ok: true, value: undefined };
+  };
+
+  const report: Store["report"] = async (target, reason, details) => {
+    const { data, error } = await supabase
+      .from("reports")
+      .insert({ listing_id: target.listingId ?? null, user_id: target.userId ?? null, reason, details: details.trim() })
+      .select("id, listing_id, user_id, created_at")
+      .single();
+    if (error) return fail(error);
+    // Record it locally instead of reloading everything: a third report can hide the listing, and the
+    // reporter should still see the confirmation. The next regular refresh picks up any hiding.
+    setReportRows((current) => [...current, data as ReportRow]);
+    return { ok: true, value: undefined };
+  };
+
   const me = userId ? profiles[userId] ?? null : null;
 
   const value: Store = {
@@ -513,7 +679,27 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     incoming: derived.incoming,
     threads: derived.threads,
     activeRequestCount: derived.activeRequestCount,
+    hasRecoveryCode,
+    recoveryCodeToShow,
+    dismissRecoveryCode: () => setRecoveryCodeToShow(null),
+    myReports: reportRows.map((row) => ({ id: row.id, listingId: row.listing_id, userId: row.user_id, createdAt: row.created_at })),
     findItem: (id) => (id ? derived.itemById.get(id) : undefined),
+    reviewsFor: (itemId) =>
+      (derived.reviewsByItem.get(itemId) ?? []).map((review) =>
+        review.sample ? review : { ...review, authorName: person(review.authorId!).name },
+      ),
+    itemRating: (itemId) => summarize(derived.reviewsByItem.get(itemId)),
+    lenderRating: (ownerId) =>
+      summarize(
+        derived.realItems
+          .filter((item) => item.ownerId === ownerId)
+          .flatMap((item) => derived.reviewsByItem.get(item.id) ?? []),
+      ),
+    reviewForRequest: (requestId) => derived.reviews.find((review) => review.requestId === requestId),
+    reportFor: ({ listingId, userId: target }) => {
+      const row = reportRows.find((entry) => (listingId ? entry.listing_id === listingId : entry.user_id === target));
+      return row ? { id: row.id, listingId: row.listing_id, userId: row.user_id, createdAt: row.created_at } : undefined;
+    },
     ownerOf: (item) => person(item.ownerId),
     person,
     personExists: (id) => Boolean(id && (sampleOwners[id] || profiles[id])),
@@ -531,6 +717,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setRequestStatus,
     openThread,
     sendMessage,
+    submitReview,
+    deleteReview,
+    report,
+    resetPassword,
+    changePassword,
+    makeRecoveryCode,
     refresh,
   };
 

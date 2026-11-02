@@ -3,15 +3,16 @@ import { HeroArt } from "../components";
 import { Icon } from "../Icon";
 import { useStore } from "../store";
 
-type Mode = "signup" | "login";
+type Mode = "signup" | "login" | "reset";
 
 export default function Welcome({ initialMode = "signup" }: { initialMode?: Mode }) {
-  const { signUp, signIn } = useStore();
+  const { signUp, signIn, resetPassword } = useStore();
   const [mode, setMode] = useState<Mode>(initialMode);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [program, setProgram] = useState("");
+  const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [checkEmail, setCheckEmail] = useState(false);
@@ -29,12 +30,20 @@ export default function Welcome({ initialMode = "signup" }: { initialMode?: Mode
       if (name.trim().length < 2) return setError("Enter your name.");
       if (!/^[^\s@]+@uci\.edu$/.test(cleanEmail)) return setError("Use your @uci.edu email address.");
       if (password.length < 8) return setError("Use a password with at least 8 characters.");
+    } else if (mode === "reset") {
+      if (!cleanEmail) return setError("Enter the email you signed up with.");
+      if (code.replace(/[^a-z0-9]/gi, "").length !== 16) return setError("Recovery codes look like ABCD-EFGH-JKLM-NPQR.");
+      if (password.length < 8) return setError("Use a new password with at least 8 characters.");
     } else if (!cleanEmail || !password) {
       return setError("Enter your email and password.");
     }
     setBusy(true);
     const result =
-      mode === "signup" ? await signUp({ name, email: cleanEmail, password, program }) : await signIn(cleanEmail, password);
+      mode === "signup"
+        ? await signUp({ name, email: cleanEmail, password, program })
+        : mode === "reset"
+          ? await resetPassword(cleanEmail, code, password)
+          : await signIn(cleanEmail, password);
     setBusy(false);
     if (!result.ok) return setError(result.error);
     if (mode === "signup" && result.value && "needsConfirmation" in result.value && result.value.needsConfirmation) {
@@ -106,13 +115,17 @@ export default function Welcome({ initialMode = "signup" }: { initialMode?: Mode
                 <button role="tab" aria-selected={mode === "signup"} className={mode === "signup" ? "active" : ""} onClick={() => switchMode("signup")}>
                   Create account
                 </button>
-                <button role="tab" aria-selected={mode === "login"} className={mode === "login" ? "active" : ""} onClick={() => switchMode("login")}>
+                <button role="tab" aria-selected={mode !== "signup"} className={mode !== "signup" ? "active" : ""} onClick={() => switchMode("login")}>
                   Log in
                 </button>
               </div>
-              <h2 id="auth-title">{mode === "signup" ? "Join lendr" : "Welcome back"}</h2>
+              <h2 id="auth-title">{mode === "signup" ? "Join lendr" : mode === "reset" ? "Reset your password" : "Welcome back"}</h2>
               <p className="auth-sub">
-                {mode === "signup" ? "Takes 30 seconds. You’ll use this to log in on any device." : "Log in with your UCI email."}
+                {mode === "signup"
+                  ? "Takes 30 seconds. You’ll use this to log in on any device."
+                  : mode === "reset"
+                    ? "Use the recovery code you saved when you signed up. It works once, and you’ll get a new one after."
+                    : "Log in with your UCI email."}
               </p>
 
               <form className="auth-form" onSubmit={submit} noValidate>
@@ -133,16 +146,39 @@ export default function Welcome({ initialMode = "signup" }: { initialMode?: Mode
                     placeholder="panteater@uci.edu"
                   />
                 </label>
-                <label className="field">
-                  <span>Password</span>
+                {mode === "reset" && (
+                  <label className="field">
+                    <span>Recovery code</span>
+                    <input
+                      value={code}
+                      onChange={(e) => setCode(e.target.value.toUpperCase())}
+                      autoComplete="one-time-code"
+                      autoCapitalize="characters"
+                      spellCheck={false}
+                      maxLength={24}
+                      placeholder="ABCD-EFGH-JKLM-NPQR"
+                      className="code-input"
+                    />
+                  </label>
+                )}
+                <div className="field">
+                  <span className="field-label-row">
+                    <label htmlFor="auth-password">{mode === "reset" ? "New password" : "Password"}</label>
+                    {mode === "login" && (
+                      <button type="button" className="text-link small" onClick={() => switchMode("reset")}>
+                        Forgot password?
+                      </button>
+                    )}
+                  </span>
                   <input
+                    id="auth-password"
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    autoComplete={mode === "signup" ? "new-password" : "current-password"}
-                    placeholder={mode === "signup" ? "At least 8 characters" : ""}
+                    autoComplete={mode === "login" ? "current-password" : "new-password"}
+                    placeholder={mode === "login" ? "" : "At least 8 characters"}
                   />
-                </label>
+                </div>
                 {mode === "signup" && (
                   <label className="field">
                     <span>
@@ -157,12 +193,22 @@ export default function Welcome({ initialMode = "signup" }: { initialMode?: Mode
                   </p>
                 )}
                 <button className="primary" type="submit" disabled={busy}>
-                  {busy ? "One moment…" : mode === "signup" ? "Create account" : "Log in"}
+                  {busy ? "One moment…" : mode === "signup" ? "Create account" : mode === "reset" ? "Set new password" : "Log in"}
                 </button>
               </form>
 
               <p className="auth-switch">
-                {mode === "signup" ? (
+                {mode === "reset" ? (
+                  <>
+                    Remembered it?{" "}
+                    <button className="text-link" onClick={() => switchMode("login")}>
+                      Back to log in
+                    </button>
+                    <span className="auth-help">
+                      Lost your recovery code too? Ask the lendr team to reset your account.
+                    </span>
+                  </>
+                ) : mode === "signup" ? (
                   <>
                     Already have an account?{" "}
                     <button className="text-link" onClick={() => switchMode("login")}>

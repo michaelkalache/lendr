@@ -49,9 +49,72 @@ function EditProfile({ onDone }: { onDone: () => void }) {
   );
 }
 
+function ChangePassword({ onDone }: { onDone: () => void }) {
+  const { changePassword } = useStore();
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(false);
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (password.length < 8) return setError("Use a password with at least 8 characters.");
+    if (password !== confirm) return setError("The two passwords don’t match.");
+    setBusy(true);
+    const result = await changePassword(password);
+    setBusy(false);
+    if (result.ok) setDone(true);
+    else setError(result.error);
+  };
+
+  if (done) {
+    return (
+      <div className="profile-form">
+        <p className="form-success">
+          <Icon name="check" size={16} /> Password changed. Use it next time you log in.
+        </p>
+        <button className="secondary" onClick={onDone}>
+          Done
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <form className="profile-form" onSubmit={submit}>
+      <label className="field">
+        <span>New password</span>
+        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" autoFocus placeholder="At least 8 characters" />
+      </label>
+      <label className="field">
+        <span>Confirm new password</span>
+        <input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="new-password" />
+      </label>
+      {error && (
+        <p className="form-error" role="alert">
+          {error}
+        </p>
+      )}
+      <div className="profile-form-actions">
+        <button type="button" className="secondary" onClick={onDone}>
+          Cancel
+        </button>
+        <button type="submit" className="primary" disabled={busy}>
+          {busy ? "Saving…" : "Change password"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
 export default function Account() {
   const { me, email, favorites, requests, incoming, myListings, allItems, signOut } = useStore();
   const navigate = useNavigate();
+  const { hasRecoveryCode, makeRecoveryCode } = useStore();
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [confirmNewCode, setConfirmNewCode] = useState(false);
+  const [codeError, setCodeError] = useState("");
   const [editing, setEditing] = useState(false);
   const [confirmLogout, setConfirmLogout] = useState(false);
   const saved = allItems.filter((item) => favorites.includes(item.id));
@@ -104,7 +167,9 @@ export default function Account() {
               <Link key={item.id} to={`/items/${item.id}`} className="my-listing">
                 <img src={photoSrc(item)} alt="" />
                 <span>
-                  <b>{item.title}</b>
+                  <b>
+                    {item.title} {item.hiddenAt && <span className="hidden-pill">Hidden for review</span>}
+                  </b>
                   <em>
                     ${item.price}/day · {item.category}
                   </em>
@@ -216,6 +281,89 @@ export default function Account() {
               </button>
             </div>
           </div>
+        )}
+      </section>
+
+      <section className="account-section">
+        <div className="section-title">
+          <div>
+            <h2>Security</h2>
+            <p>Your password and how to get back in if you forget it</p>
+          </div>
+        </div>
+        {!hasRecoveryCode && hasRecoveryCode !== null && (
+          <div className="recovery-warning">
+            <Icon name="key" />
+            <span>
+              <b>Set up password recovery.</b> Without a recovery code, a forgotten password can’t be reset from the
+              log-in page.
+            </span>
+          </div>
+        )}
+        {changingPassword ? (
+          <ChangePassword onDone={() => setChangingPassword(false)} />
+        ) : (
+          <div className="account-menu">
+            <button onClick={() => setChangingPassword(true)}>
+              <span>
+                <Icon name="key" />
+              </span>
+              <div>
+                <b>Change password</b>
+                <p>Pick a new password for {email}</p>
+              </div>
+              <Icon name="chevron" />
+            </button>
+            <button onClick={() => (hasRecoveryCode ? setConfirmNewCode(true) : void makeRecoveryCode())}>
+              <span>
+                <Icon name="shield" />
+              </span>
+              <div>
+                <b>{hasRecoveryCode ? "Make a new recovery code" : "Create a recovery code"}</b>
+                <p>
+                  {hasRecoveryCode
+                    ? "You have one saved. A new code replaces it."
+                    : "Lets you reset your password from the log-in page"}
+                </p>
+              </div>
+              <Icon name="chevron" />
+            </button>
+            <Link to="/safety">
+              <span>
+                <Icon name="flag" />
+              </span>
+              <div>
+                <b>Trust & safety</b>
+                <p>How lendr keeps borrowing safe, and how to report a problem</p>
+              </div>
+              <Icon name="chevron" />
+            </Link>
+          </div>
+        )}
+        {confirmNewCode && (
+          <div className="reset-confirm">
+            <p>Make a new recovery code? Your old code will stop working.</p>
+            <div>
+              <button className="secondary" onClick={() => setConfirmNewCode(false)}>
+                Keep old code
+              </button>
+              <button
+                className="primary"
+                onClick={async () => {
+                  setConfirmNewCode(false);
+                  const result = await makeRecoveryCode();
+                  if (!result.ok) setCodeError(result.error);
+                }}
+              >
+                Make new code
+              </button>
+            </div>
+          </div>
+        )}
+        {codeError && (
+          <p className="form-error" role="alert">
+            {codeError}
+          </p>
         )}
       </section>
     </div>

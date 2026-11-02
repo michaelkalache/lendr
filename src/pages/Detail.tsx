@@ -1,16 +1,29 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { BackLink, FavoriteButton } from "../components";
-import { firstName, initials, photoSrc, pickupOf } from "../data";
+import { bundleSavings, bundlesContaining, firstName, initials, photoSrc, pickupOf } from "../data";
 import { Icon } from "../Icon";
-import { useStore } from "../store";
+import { displayStatus, useStore } from "../store";
+import { RatingBadge, ReportButton, ReviewForm, ReviewList } from "../trust";
 import NotFound from "./NotFound";
 
 export default function Detail() {
   const { itemId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const { findItem, ownerOf, isMine, openThread, removeListing } = useStore();
+  const {
+    findItem,
+    ownerOf,
+    isMine,
+    openThread,
+    removeListing,
+    allItems,
+    reviewsFor,
+    itemRating,
+    lenderRating,
+    requests,
+    reviewForRequest,
+  } = useStore();
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -20,6 +33,21 @@ export default function Detail() {
   const ownerFirst = firstName(owner.name);
   const mine = isMine(item);
   const justPublished = (location.state as { published?: "new" | "updated" } | null)?.published;
+  const reviews = reviewsFor(item.id);
+  const rating = itemRating(item.id);
+  const ownerRating = owner.sample ? null : lenderRating(owner.id);
+  const parts = (item.bundle ?? []).map((id) => findItem(id)).filter((part): part is NonNullable<typeof part> => Boolean(part));
+  const savings = item.bundle ? bundleSavings(item, allItems) : null;
+  const inBundles = bundlesContaining(item.id, allItems);
+  const today = new Date().toISOString().slice(0, 10);
+  // A borrow of mine for this item that's approved, has started, and isn't reviewed yet.
+  const reviewable = requests.find(
+    (request) =>
+      request.itemId === item.id &&
+      displayStatus(request) === "approved" &&
+      request.start <= today &&
+      !reviewForRequest(request.id),
+  );
 
   const messageOwner = async () => {
     setBusy(true);
@@ -40,9 +68,11 @@ export default function Detail() {
 
   const ownerLine = owner.rating
     ? `${owner.rating} · ${owner.lends} completed lends`
-    : owner.program
-      ? owner.program
-      : "UCI student";
+    : ownerRating
+      ? `${ownerRating.average.toFixed(1)} lender rating from ${ownerRating.count} item ${ownerRating.count === 1 ? "review" : "reviews"}`
+      : owner.program
+        ? owner.program
+        : "UCI student";
 
   return (
     <div className="container detail-page">
@@ -56,6 +86,15 @@ export default function Detail() {
           <span>
             <b>{justPublished === "new" ? "Your listing is live." : "Listing updated."}</b> Everyone on lendr can now
             find it in Discover and Explore.
+          </span>
+        </div>
+      )}
+      {mine && item.hiddenAt && (
+        <div className="hidden-banner" role="status">
+          <Icon name="flag" />
+          <span>
+            <b>This listing is hidden while we review reports.</b> Other students can’t see or request it right now. If
+            you think this is a mistake, message the lendr team.
           </span>
         </div>
       )}
@@ -86,16 +125,26 @@ export default function Detail() {
           <div className="detail-body">
             <div className="status-row">
               <span className="availability">
-                <i /> {mine ? "Your listing · live" : item.sample ? "Sample" : "Available"}
+                <i /> {mine ? (item.hiddenAt ? "Your listing · hidden for review" : "Your listing · live") : item.sample ? "Sample" : "Available"}
               </span>
               <span>
                 <Icon name="map" size={16} /> {item.distance}
               </span>
             </div>
+            {item.bundle && (
+              <span className="bundle-tag">
+                <Icon name="layers" size={14} /> Bundle · {parts.length} items
+              </span>
+            )}
             <h1>{item.title}</h1>
             <div className="price">
               <strong>${item.price}</strong> / day <span>${item.price * 4} max per week</span>
             </div>
+            {rating && (
+              <a href="#reviews" className="detail-rating">
+                <RatingBadge rating={rating} /> {rating.sample ? "sample reviews" : rating.count === 1 ? "review" : "reviews"}
+              </a>
+            )}
 
             <Link to={`/people/${owner.id}`} className="owner-card owner-link">
               <div className="avatar">{initials(owner.name)}</div>
@@ -111,7 +160,7 @@ export default function Detail() {
                   )}
                 </h3>
                 <p>
-                  {owner.rating && <Icon name="star" size={14} filled />} {ownerLine}
+                  {(owner.rating || ownerRating) && <Icon name="star" size={14} filled />} {ownerLine}
                   {owner.sample ? " (sample stats)" : ""}
                 </p>
               </div>
@@ -137,9 +186,51 @@ export default function Detail() {
             )}
 
             <section className="details-block">
-              <h2>About this item</h2>
+              <h2>About this {item.bundle ? "bundle" : "item"}</h2>
               <p>{item.description}</p>
             </section>
+
+            {item.bundle && (
+              <section className="details-block bundle-block">
+                <h2>What’s in this bundle</h2>
+                <ul className="bundle-parts">
+                  {parts.map((part) => (
+                    <li key={part.id}>
+                      <Link to={`/items/${part.id}`}>
+                        <img src={photoSrc(part)} alt="" />
+                        <span>
+                          <b>{part.title}</b>
+                          <em>${part.price}/day on its own</em>
+                        </span>
+                        <Icon name="chevron" size={16} />
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+                {savings && savings.saves > 0 && (
+                  <p className="bundle-savings">
+                    <Icon name="check" size={16} /> ${item.price}/day together instead of ${savings.separate}/day separately — save $
+                    {savings.saves} a day.
+                  </p>
+                )}
+              </section>
+            )}
+
+            {inBundles.length > 0 && (
+              <div className="in-bundle">
+                <Icon name="layers" size={16} />
+                <span>
+                  Also part of{" "}
+                  {inBundles.map((bundle, i) => (
+                    <span key={bundle.id}>
+                      {i > 0 && ", "}
+                      <Link to={`/items/${bundle.id}`}>{bundle.title}</Link>
+                    </span>
+                  ))}
+                  {inBundles.some((bundle) => bundle.sample) && <span className="sample-pill">Sample</span>}
+                </span>
+              </div>
+            )}
 
             <section className="details-block">
               <h2>Pickup</h2>
@@ -152,6 +243,36 @@ export default function Detail() {
                   <p>Confirm the exact time and spot in Messages</p>
                 </div>
               </div>
+            </section>
+
+            <section className="details-block reviews-block" id="reviews">
+              <div className="reviews-head">
+                <h2>Reviews of this {item.bundle ? "bundle" : "item"}</h2>
+                {rating && (
+                  <span>
+                    <RatingBadge rating={rating} />
+                    {rating.sample && <span className="sample-pill">Sample</span>}
+                  </span>
+                )}
+              </div>
+              {reviewable && (
+                <div className="review-prompt">
+                  <ReviewForm requestId={reviewable.id} itemTitle={item.title} />
+                </div>
+              )}
+              {reviews.length ? (
+                <>
+                  {rating?.sample && (
+                    <p className="field-hint">These are example reviews that show how item reviews look. They aren’t from real borrowers.</p>
+                  )}
+                  <ReviewList reviews={reviews} />
+                </>
+              ) : (
+                <p className="muted-line">
+                  No reviews yet. Students who borrow this {item.bundle ? "bundle" : "item"} can rate it after their borrow
+                  starts.
+                </p>
+              )}
             </section>
 
             <section className="damage-policy">
@@ -177,9 +298,18 @@ export default function Detail() {
                 </li>
               </ol>
               <p className="policy-limit">
-                Coverage limit for this item: <b>${item.coverage}</b>
+                Coverage limit for this {item.bundle ? "bundle" : "item"}: <b>${item.coverage}</b>
               </p>
             </section>
+
+            {!mine && !item.sample && (
+              <div className="report-row">
+                <ReportButton target={{ listingId: item.id }} name={item.title} />
+                <Link to="/safety" className="text-link small">
+                  How we keep lendr safe
+                </Link>
+              </div>
+            )}
           </div>
         </div>
 

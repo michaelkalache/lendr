@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { BackLink, FavoriteButton } from "../components";
-import { bundleSavings, bundlesContaining, firstName, initials, photoSrc, pickupOf } from "../data";
+import { bundleSavings, bundlesContaining, firstName, initials, photoSrc } from "../data";
+import { SpotCard } from "../handoff";
 import { Icon } from "../Icon";
-import { displayStatus, useStore } from "../store";
+import { useStore } from "../store";
 import { RatingBadge, ReportButton, ReviewForm, ReviewList } from "../trust";
 import NotFound from "./NotFound";
 
@@ -39,14 +40,9 @@ export default function Detail() {
   const parts = (item.bundle ?? []).map((id) => findItem(id)).filter((part): part is NonNullable<typeof part> => Boolean(part));
   const savings = item.bundle ? bundleSavings(item, allItems) : null;
   const inBundles = bundlesContaining(item.id, allItems);
-  const today = new Date().toISOString().slice(0, 10);
-  // A borrow of mine for this item that's approved, has started, and isn't reviewed yet.
+  // A borrow of mine for this item that's been returned (and confirmed) but not reviewed yet.
   const reviewable = requests.find(
-    (request) =>
-      request.itemId === item.id &&
-      displayStatus(request) === "approved" &&
-      request.start <= today &&
-      !reviewForRequest(request.id),
+    (request) => request.itemId === item.id && request.status === "completed" && !reviewForRequest(request.id),
   );
 
   const messageOwner = async () => {
@@ -233,16 +229,12 @@ export default function Detail() {
             )}
 
             <section className="details-block">
-              <h2>Pickup</h2>
-              <div className="pickup">
-                <span>
-                  <Icon name="map" />
-                </span>
-                <div>
-                  <b>{pickupOf(item)}</b>
-                  <p>Confirm the exact time and spot in Messages</p>
-                </div>
-              </div>
+              <h2>Drop-off & return</h2>
+              <p className="muted-line">
+                No meetup needed. {mine ? "You leave" : `${ownerFirst} leaves`} the item at a campus spot, the borrower picks
+                it up there, and returns it when they’re done. <Link to="/help#spots">How drop-offs work</Link>
+              </p>
+              <SpotCard label={item.sample ? "USUAL SPOT (SAMPLE)" : "USUAL DROP-OFF SPOT"} spotId={item.pickup ?? ""} />
             </section>
 
             <section className="details-block reviews-block" id="reviews">
@@ -269,8 +261,8 @@ export default function Detail() {
                 </>
               ) : (
                 <p className="muted-line">
-                  No reviews yet. Students who borrow this {item.bundle ? "bundle" : "item"} can rate it after their borrow
-                  starts.
+                  No reviews yet. Students who borrow this {item.bundle ? "bundle" : "item"} can rate it once they’ve
+                  returned it.
                 </p>
               )}
             </section>
@@ -287,7 +279,7 @@ export default function Detail() {
               </div>
               <ol>
                 <li>
-                  <b>Document it.</b> Both students share pickup and return photos in the chat.
+                  <b>Document it.</b> Snap a photo at pickup and at return, and share it in the chat.
                 </li>
                 <li>
                   <b>Lendr reviews.</b> Report within 24 hours; we compare photos and messages.
@@ -364,12 +356,12 @@ export default function Detail() {
                 <div className="price">
                   <strong>${item.price}</strong> / day
                 </div>
-                <p>{ownerFirst} has 2 hours to approve or decline your request.</p>
+                <p>{ownerFirst} has 24 hours to approve or decline your request.</p>
               </div>
               <Link className="primary link-button" to={`/items/${item.id}/request`}>
                 Check dates & request
               </Link>
-              <p className="action-note">Pay {ownerFirst} at pickup. Nothing is charged online.</p>
+              <p className="action-note">Pay {ownerFirst} directly once you pick it up. Nothing is charged online.</p>
             </div>
           )}
         </aside>

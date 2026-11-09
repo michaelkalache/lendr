@@ -45,12 +45,16 @@ export function SiteHeader() {
           </NavLink>
           <NavLink to="/activity">Activity</NavLink>
           <NavLink to="/messages">Messages</NavLink>
+          <NavLink to="/help">Help</NavLink>
         </nav>
 
         <div className="header-actions">
           <Link to="/list" className="list-button" aria-label="List an item">
             <Icon name="plus" size={18} />
             <span>List an item</span>
+          </Link>
+          <Link to="/help" className="icon-button help-button" aria-label="Help: how lendr works">
+            <Icon name="help" />
           </Link>
           <Link
             to="/activity"

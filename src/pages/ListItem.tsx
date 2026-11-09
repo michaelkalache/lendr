@@ -1,7 +1,9 @@
 import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { BackLink, ItemCard } from "../components";
-import { PICKUP_SPOT, categories, type Category, type Item } from "../data";
+import { categories, type Category, type Item } from "../data";
+import { SpotMap, SpotSelect } from "../handoff";
+import { DEFAULT_SPOT, isSpot } from "../spots";
 import { Icon } from "../Icon";
 import { useStore } from "../store";
 import NotFound from "./NotFound";
@@ -65,7 +67,7 @@ function toItem(draft: Draft, ownerId: string, existing?: Item): Item {
     price: Number(draft.price) || 0,
     coverage: Number(draft.coverage) || 0,
     description: draft.description.trim(),
-    pickup: draft.pickup.trim() || PICKUP_SPOT,
+    pickup: draft.pickup || DEFAULT_SPOT,
     photo: draft.photo,
     alt: title,
     ownerId,
@@ -86,7 +88,7 @@ export default function ListItem() {
     price: existing ? String(existing.price) : "",
     coverage: existing ? String(existing.coverage) : "",
     description: existing?.description ?? "",
-    pickup: existing?.pickup ?? PICKUP_SPOT,
+    pickup: isSpot(existing?.pickup) ? existing.pickup : DEFAULT_SPOT,
     photo: existing?.photo ?? "",
   }));
   const [errors, setErrors] = useState<Errors>({});
@@ -280,12 +282,17 @@ export default function ListItem() {
           </section>
 
           <section className="form-section">
-            <h2>Pickup</h2>
-            <label className="field">
-              <span>Meetup spot</span>
-              <input {...field("pickup")} value={draft.pickup} onChange={set("pickup")} maxLength={60} />
-            </label>
-            <p className="field-hint">Pick a public spot on campus. The exact place is only shared after you approve a request.</p>
+            <h2>Drop-off spot</h2>
+            <p className="field-hint section-lede">
+              No meetups needed. You leave the item at a campus spot, the borrower picks it up there, and returns it the
+              same way. Borrowers can suggest a different spot when they request.
+            </p>
+            <SpotSelect
+              value={draft.pickup}
+              onChange={(pickup) => setDraft((current) => ({ ...current, pickup }))}
+              label="Where you’ll usually leave it"
+            />
+            <SpotMap spotId={draft.pickup} />
           </section>
 
           <div className="form-submit">

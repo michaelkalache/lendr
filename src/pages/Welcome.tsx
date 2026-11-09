@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { Link } from "react-router-dom";
 import { HeroArt } from "../components";
 import { Icon } from "../Icon";
 import { useStore } from "../store";
@@ -83,9 +84,12 @@ export default function Welcome({ initialMode = "signup" }: { initialMode?: Mode
               <Icon name="check" size={16} /> Lenders approve every borrow
             </li>
             <li>
-              <Icon name="check" size={16} /> Meet on campus, chat in the app
+              <Icon name="check" size={16} /> No meetups: drop off and pick up at campus spots
             </li>
           </ul>
+          <Link to="/help" className="text-link welcome-help">
+            How lendr works →
+          </Link>
           <HeroArt />
         </section>
 

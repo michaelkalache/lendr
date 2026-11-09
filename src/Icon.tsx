@@ -14,6 +14,7 @@ export type IconName =
   | "key"
   | "layers"
   | "heart"
+  | "help"
   | "home"
   | "inbox"
   | "map"
@@ -66,6 +67,12 @@ const paths: Record<IconName, ReactNode> = {
     <>
       <path d="m12 3 9 5-9 5-9-5Z" />
       <path d="m3 13 9 5 9-5" />
+    </>
+  ),
+  help: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M9.6 9.3a2.5 2.5 0 1 1 3.4 2.4c-.6.3-1 .8-1 1.4v.6M12 16.8h.01" />
     </>
   ),
   heart: <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1.1L12 21l7.8-7.5a5.5 5.5 0 0 0 1-8.9Z" />,

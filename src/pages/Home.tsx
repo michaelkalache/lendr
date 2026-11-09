@@ -4,7 +4,8 @@ import { HeroArt, ItemCard } from "../components";
 import { categories, firstName, photoSrc } from "../data";
 import { formatRange } from "../dates";
 import { Icon } from "../Icon";
-import { displayStatus, useStore } from "../store";
+import { spotName } from "../spots";
+import { displayStatus, isOverdue, stageOf, turnOf, useStore, type BorrowRequest } from "../store";
 
 function greeting() {
   const hour = new Date().getHours();
@@ -16,10 +17,39 @@ function greeting() {
 export default function Home() {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
-  const { requests, allItems, findItem, ownerOf, me, myListings, hasRecoveryCode, makeRecoveryCode } = useStore();
+  const { requests, incoming, allItems, findItem, ownerOf, person, me, myListings, hasRecoveryCode, makeRecoveryCode, reviewForRequest } =
+    useStore();
   const bundles = allItems.filter((item) => item.bundle);
   const pending = requests.find((request) => displayStatus(request) === "pending");
   const pendingItem = pending ? findItem(pending.itemId) : undefined;
+
+  // The most useful next step, if anything is waiting on me.
+  const todo = (() => {
+    const pick = (request: BorrowRequest | undefined, label: string, text: (title: string) => string) => {
+      const item = request && findItem(request.itemId);
+      return request && item ? { request, item, label, text: text(item.title) } : null;
+    };
+    const lend = incoming.find((request) => turnOf(request) === "lender");
+    const borrow = requests.find((request) => turnOf(request) === "borrower");
+    const rate = requests.find((request) => request.status === "completed" && !reviewForRequest(request.id));
+    if (borrow) {
+      const stage = stageOf(borrow);
+      return stage === "ready"
+        ? pick(borrow, "READY FOR PICKUP", (title) => `${title} · at ${spotName(borrow.pickupSpot)}`)
+        : pick(borrow, isOverdue(borrow) ? "OVERDUE · RETURN IT" : "RETURN WHEN DONE", (title) => `${title} · to ${spotName(borrow.returnSpot)}`);
+    }
+    if (lend) {
+      const stage = stageOf(lend);
+      const who = firstName(person(lend.borrowerId).name);
+      return stage === "pending"
+        ? pick(lend, "NEW REQUEST", (title) => `${who} wants your ${title}`)
+        : stage === "approved"
+          ? pick(lend, "DROP IT OFF", (title) => `${title} · at ${spotName(lend.pickupSpot)}`)
+          : pick(lend, "CONFIRM IT’S BACK", (title) => `${who} returned your ${title}`);
+    }
+    if (rate) return pick(rate, "HOW WAS IT?", (title) => `Rate the ${title}`);
+    return null;
+  })();
 
   const explore = (value: string) =>
     navigate(`/explore${value.trim() ? `?q=${encodeURIComponent(value.trim())}` : ""}`);
@@ -64,7 +94,19 @@ export default function Home() {
         <HeroArt />
       </section>
 
-      {pending && pendingItem && (
+      {todo && (
+        <Link to="/activity" className="pending-strip todo-strip">
+          <img src={photoSrc(todo.item)} alt="" />
+          <span>
+            <small>{todo.label}</small>
+            <b>{todo.text}</b>
+            <em>Open Activity to take the next step</em>
+          </span>
+          <Icon name="chevron" />
+        </Link>
+      )}
+
+      {!todo && pending && pendingItem && (
         <Link to="/activity" className="pending-strip">
           <img src={photoSrc(pendingItem)} alt="" />
           <span>

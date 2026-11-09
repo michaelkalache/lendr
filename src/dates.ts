@@ -46,3 +46,15 @@ export function formatWhen(iso: string) {
   if (diff === 1) return `Yesterday at ${formatTime(iso)}`;
   return `${date.toLocaleDateString("en-US", { month: "short", day: "numeric" })} at ${formatTime(iso)}`;
 }
+
+/** A future moment in words: "today at 3:10 PM", "tomorrow at 9:00 AM", or "Nov 12 at 9:00 AM". */
+export function formatDeadline(iso: string) {
+  const date = new Date(iso);
+  const diff = Math.round((startOfDay(date).getTime() - startOfDay(new Date()).getTime()) / DAY);
+  if (diff === 0) return `today at ${formatTime(iso)}`;
+  if (diff === 1) return `tomorrow at ${formatTime(iso)}`;
+  return `${date.toLocaleDateString("en-US", { month: "short", day: "numeric" })} at ${formatTime(iso)}`;
+}
+
+/** Today's date as YYYY-MM-DD in the viewer's time zone. */
+export const todayISO = () => toISODate(new Date());

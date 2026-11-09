@@ -159,7 +159,7 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
 const REASONS: { value: ReportReason; label: string; hint: string; for: ("listing" | "user")[] }[] = [
   { value: "prohibited", label: "Prohibited item", hint: "Weapons, alcohol, drugs, stolen goods, anything not allowed on campus", for: ["listing"] },
   { value: "unsafe", label: "Unsafe or broken", hint: "Damaged, recalled, or dangerous to use", for: ["listing"] },
-  { value: "scam", label: "Scam or misleading", hint: "Fake listing, asks for payment outside the meetup, bait-and-switch", for: ["listing", "user"] },
+  { value: "scam", label: "Scam or misleading", hint: "Fake listing, asks for payment before you have the item, bait-and-switch", for: ["listing", "user"] },
   { value: "harassment", label: "Harassment or inappropriate behavior", hint: "Rude, threatening, or unwanted messages", for: ["user"] },
   { value: "fake_account", label: "Not a real UCI student", hint: "Impersonation or a fake account", for: ["user"] },
   { value: "other", label: "Something else", hint: "Tell us what happened", for: ["listing", "user"] },

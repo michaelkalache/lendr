@@ -1,13 +1,25 @@
 import type { Session } from "@supabase/supabase-js";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { sampleItems, sampleOwners, sampleReviews, type Category, type Item, type Owner } from "./data";
-import { formatRange } from "./dates";
+import { formatRange, todayISO } from "./dates";
+import { DEFAULT_SPOT, spotName } from "./spots";
 import { PHOTO_BUCKET, supabase, supabaseConfigured } from "./supabase";
 
-export const REQUEST_TTL_MS = 2 * 60 * 60 * 1000;
+/** Lenders have 24 hours to accept or decline a request. */
+export const REQUEST_TTL_MS = 24 * 60 * 60 * 1000;
 
-export type RequestStatus = "pending" | "approved" | "declined" | "cancelled";
+export type RequestStatus = "pending" | "approved" | "declined" | "cancelled" | "completed";
 export type DisplayStatus = RequestStatus | "expired";
+
+/**
+ * Where a borrow stands. After approval the item moves through campus drop-off spots:
+ * approved (lender drops it off) → ready (borrower picks it up) → out (borrower returns it)
+ * → returned (lender confirms it's back) → completed.
+ */
+export type Stage = "pending" | "expired" | "declined" | "cancelled" | "approved" | "ready" | "out" | "returned" | "completed";
+
+/** A handoff step someone can mark done. */
+export type HandoffStep = "dropped_off" | "picked_up" | "returned" | "received";
 
 export type Profile = { id: string; name: string; program: string; created_at?: string };
 
@@ -21,6 +33,14 @@ export type BorrowRequest = {
   total: number;
   status: RequestStatus;
   createdAt: string;
+  pickupSpot: string;
+  returnSpot: string;
+  pickupNote: string;
+  returnNote: string;
+  droppedOffAt?: string;
+  pickedUpAt?: string;
+  returnedAt?: string;
+  receivedAt?: string;
 };
 
 export type ChatMessage = {
@@ -97,6 +117,14 @@ type RequestRow = {
   total: number;
   status: RequestStatus;
   created_at: string;
+  pickup_spot?: string;
+  return_spot?: string;
+  pickup_note?: string;
+  return_note?: string;
+  dropped_off_at?: string | null;
+  picked_up_at?: string | null;
+  returned_at?: string | null;
+  received_at?: string | null;
 };
 type ReviewRow = { id: string; request_id: string; listing_id: string; reviewer_id: string; rating: number; body: string; created_at: string };
 type ReportRow = { id: string; listing_id: string | null; user_id: string | null; created_at: string };
@@ -129,6 +157,14 @@ const toRequest = (row: RequestRow): BorrowRequest => ({
   total: row.total,
   status: row.status,
   createdAt: row.created_at,
+  pickupSpot: row.pickup_spot ?? DEFAULT_SPOT,
+  returnSpot: row.return_spot ?? row.pickup_spot ?? DEFAULT_SPOT,
+  pickupNote: row.pickup_note ?? "",
+  returnNote: row.return_note ?? "",
+  droppedOffAt: row.dropped_off_at ?? undefined,
+  pickedUpAt: row.picked_up_at ?? undefined,
+  returnedAt: row.returned_at ?? undefined,
+  receivedAt: row.received_at ?? undefined,
 });
 
 /** Turn database errors into sentences people can act on. */
@@ -146,12 +182,27 @@ export function friendlyError(error: { message?: string } | null | undefined): s
   if (/reports_once_per/i.test(message)) return "You’ve already reported this.";
   if (/reviews_request_id_key/i.test(message)) return "You’ve already reviewed this borrow.";
   if (/same_password|should be different/i.test(message)) return "Choose a password different from your current one.";
+  if (/requests_spots_check|listings_pickup_spot/i.test(message)) return "Pick a drop-off spot from the list.";
+  if (/requests_notes_check/i.test(message)) return "Keep the note under 200 characters.";
   const known = [
+    "This borrow isn't active",
+    "Only the lender can mark the item as dropped off",
+    "You already marked this item as dropped off",
+    "Only the borrower can mark the item as picked up",
+    "The lender hasn't dropped the item off yet",
+    "You already marked this item as picked up",
+    "Only the borrower can mark the item as returned",
+    "Mark the item as picked up first",
+    "You already marked this item as returned",
+    "Only the lender can confirm the item is back",
+    "The borrower hasn't returned the item yet",
+    "You already confirmed this return",
+    "This item was already picked up. Return it to finish the borrow",
+    "You can review this item once it's returned and the lender confirms it's back",
+    "You can't make that change to this request",
     "You can't report your own listing",
     "You can't report yourself",
     "You can only review items you borrowed",
-    "You can review an item once the lender approves your borrow",
-    "You can review this item once your borrow starts",
     "This listing is under review and can't be requested right now",
     "This listing is under review and can't be messaged about right now",
     "Too many reset attempts for this email. Try again in an hour",
@@ -159,11 +210,11 @@ export function friendlyError(error: { message?: string } | null | undefined): s
     "You can't request your own item",
     "Pick a start date that isn't in the past",
     "This request is already closed",
-    "This request expired after 2 hours without a response",
+    "This request expired after 24 hours without a response",
     "That listing no longer exists",
   ];
   const match = known.find((text) => message.includes(text));
-  if (match) return match.replace("can't", "can’t").replace("isn't", "isn’t") + ".";
+  if (match) return match.replace(/'/g, "’") + ".";
   return message || "Something went wrong. Please try again.";
 }
 
@@ -172,6 +223,35 @@ const fail = <T,>(error: { message?: string } | null | undefined): Result<T> => 
 export function displayStatus(request: BorrowRequest, now = Date.now()): DisplayStatus {
   if (request.status === "pending" && now - new Date(request.createdAt).getTime() > REQUEST_TTL_MS) return "expired";
   return request.status;
+}
+
+export function stageOf(request: BorrowRequest, now = Date.now()): Stage {
+  const status = displayStatus(request, now);
+  if (status !== "approved") return status;
+  if (request.returnedAt) return "returned";
+  if (request.pickedUpAt) return "out";
+  if (request.droppedOffAt) return "ready";
+  return "approved";
+}
+
+/** Approved borrows that haven't finished yet. */
+export const isActiveBorrow = (stage: Stage) => stage === "approved" || stage === "ready" || stage === "out" || stage === "returned";
+
+/** Still open: waiting on a response or somewhere in the handoff. */
+export const isOpen = (request: BorrowRequest) => {
+  const stage = stageOf(request);
+  return stage === "pending" || isActiveBorrow(stage);
+};
+
+/** The borrower still has the item after the return day. */
+export const isOverdue = (request: BorrowRequest) => stageOf(request) === "out" && request.end < todayISO();
+
+/** Whose move it is: the lender drops off and confirms the return; the borrower picks up and returns. */
+export function turnOf(request: BorrowRequest): "lender" | "borrower" | null {
+  const stage = stageOf(request);
+  if (stage === "pending" || stage === "approved" || stage === "returned") return "lender";
+  if (stage === "ready" || stage === "out") return "borrower";
+  return null;
 }
 
 /* ───────── Store ───────── */
@@ -192,6 +272,7 @@ type Store = {
   /** Requests other people sent for my listings, newest first. */
   incoming: BorrowRequest[];
   threads: Thread[];
+  /** Things waiting on me: requests to answer, items to drop off, pick up, return, or check in, and reviews to leave. */
   activeRequestCount: number;
 
   /** Whether the signed-in person has a password recovery code (null while unknown). */
@@ -222,8 +303,10 @@ type Store = {
   toggleFavorite: (itemId: string) => Promise<void>;
   saveListing: (input: ListingInput, existingId?: string) => Promise<Result<string>>;
   removeListing: (id: string) => Promise<Result>;
-  createRequest: (itemId: string, start: string, end: string) => Promise<Result<string>>;
+  createRequest: (itemId: string, start: string, end: string, spots: { pickup: string; return: string }) => Promise<Result<string>>;
   setRequestStatus: (id: string, status: "approved" | "declined" | "cancelled") => Promise<Result>;
+  /** Mark a handoff step done, optionally setting where the item was left and a short note. */
+  advanceRequest: (id: string, step: HandoffStep, details?: { spot?: string; note?: string }) => Promise<Result>;
   openThread: (itemId: string) => Promise<Result<string>>;
   sendMessage: (threadId: string, text: string, kind?: "text" | "system") => Promise<Result>;
   submitReview: (requestId: string, rating: number, body: string) => Promise<Result>;
@@ -379,9 +462,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         updatedAt: row.updated_at,
       }))
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+    const reviewedRequests = new Set(reviewRows.map((row) => row.request_id));
     const activeRequestCount =
-      requests.filter((request) => displayStatus(request) === "pending").length +
-      incoming.filter((request) => displayStatus(request) === "pending").length;
+      requests.filter((request) => turnOf(request) === "borrower").length +
+      requests.filter((request) => request.status === "completed" && !reviewedRequests.has(request.id)).length +
+      incoming.filter((request) => turnOf(request) === "lender").length;
     const reviews: Review[] = [
       ...reviewRows.map((row) => ({
         id: row.id,
@@ -506,7 +591,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       price: input.price,
       coverage: input.coverage,
       description: input.description.trim(),
-      pickup: input.pickup.trim() || "UCI Student Center",
+      pickup: input.pickup || DEFAULT_SPOT,
       photo_url: photoUrl,
     };
     const query = existingId
@@ -562,11 +647,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return { ok: true, value: undefined };
   };
 
-  const createRequest: Store["createRequest"] = async (itemId, start, end) => {
+  const createRequest: Store["createRequest"] = async (itemId, start, end, spots) => {
     if (!userId) return { ok: false, error: "You’re signed out." };
     const { data, error } = await supabase
       .from("requests")
-      .insert({ listing_id: itemId, start_date: start, end_date: end })
+      .insert({ listing_id: itemId, start_date: start, end_date: end, pickup_spot: spots.pickup, return_spot: spots.return })
       .select("*")
       .single();
     if (error) return fail(error);
@@ -577,7 +662,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       await supabase.from("messages").insert({
         conversation_id: thread.value,
         kind: "system",
-        body: `Requested the ${item.title} for ${formatRange(row.start_date, row.end_date)} · $${row.total} total.`,
+        body: `Requested the ${item.title} for ${formatRange(row.start_date, row.end_date)} · $${row.total} total. Pickup: ${spotName(row.pickup_spot)} · Return: ${spotName(row.return_spot)}.`,
       });
     }
     await refresh();
@@ -593,11 +678,47 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const range = formatRange(request.start_date, request.end_date);
       const note =
         status === "approved"
-          ? `Approved the request for ${range}. Coordinate pickup here.`
+          ? `Approved the request for ${range}. I’ll drop it off at ${spotName(request.pickup_spot)} and mark it in Activity.`
           : status === "declined"
             ? `Declined the request for ${range}.`
             : `Cancelled the request for ${range}.`;
       await supabase.from("messages").insert({ conversation_id: thread.id, kind: "system", body: note });
+    }
+    await refresh();
+    return { ok: true, value: undefined };
+  };
+
+  const advanceRequest: Store["advanceRequest"] = async (id, step, details = {}) => {
+    const request = requestRows.find((row) => row.id === id);
+    if (!request) return { ok: false, error: "That borrow no longer exists." };
+    const now = new Date().toISOString();
+    const note = (details.note ?? "").trim().slice(0, 200);
+    const patch: Record<string, string> =
+      step === "dropped_off"
+        ? { dropped_off_at: now, pickup_spot: details.spot ?? request.pickup_spot ?? DEFAULT_SPOT, pickup_note: note }
+        : step === "returned"
+          ? { returned_at: now, return_spot: details.spot ?? request.return_spot ?? DEFAULT_SPOT, return_note: note }
+          : step === "picked_up"
+            ? { picked_up_at: now }
+            : { received_at: now };
+    const { data, error } = await supabase.from("requests").update(patch).eq("id", id).select("*").single();
+    if (error) return fail(error);
+    const row = data as RequestRow;
+    // Show the change right away, then tell the other person in the chat.
+    setRequestRows((current) => current.map((entry) => (entry.id === id ? row : entry)));
+    const item = derived.itemById.get(row.listing_id);
+    const thread = conversations.find((entry) => entry.listing_id === row.listing_id && entry.borrower_id === row.borrower_id);
+    if (thread && item) {
+      const withNote = (text: string) => (note ? `${text} Note: “${note}”` : text);
+      const body =
+        step === "dropped_off"
+          ? withNote(`Dropped off the ${item.title} at ${spotName(row.pickup_spot)}. It’s ready for pickup.`)
+          : step === "picked_up"
+            ? `Picked up the ${item.title}. Return it to ${spotName(row.return_spot)} by ${formatRange(row.end_date, row.end_date)}.`
+            : step === "returned"
+              ? withNote(`Returned the ${item.title} to ${spotName(row.return_spot)}.`)
+              : `Got the ${item.title} back. This borrow is complete. Thanks!`;
+      await supabase.from("messages").insert({ conversation_id: thread.id, kind: "system", body });
     }
     await refresh();
     return { ok: true, value: undefined };
@@ -715,6 +836,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     removeListing,
     createRequest,
     setRequestStatus,
+    advanceRequest,
     openThread,
     sendMessage,
     submitReview,

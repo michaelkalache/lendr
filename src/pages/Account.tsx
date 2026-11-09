@@ -287,8 +287,8 @@ export default function Account() {
       <section className="account-section">
         <div className="section-title">
           <div>
-            <h2>Security</h2>
-            <p>Your password and how to get back in if you forget it</p>
+            <h2>Security & help</h2>
+            <p>Your password, how lendr works, and how we keep it safe</p>
           </div>
         </div>
         {!hasRecoveryCode && hasRecoveryCode !== null && (
@@ -328,6 +328,16 @@ export default function Account() {
               </div>
               <Icon name="chevron" />
             </button>
+            <Link to="/help">
+              <span>
+                <Icon name="help" />
+              </span>
+              <div>
+                <b>Help: how lendr works</b>
+                <p>Borrowing, lending, drop-off spots, returns, and reviews</p>
+              </div>
+              <Icon name="chevron" />
+            </Link>
             <Link to="/safety">
               <span>
                 <Icon name="flag" />

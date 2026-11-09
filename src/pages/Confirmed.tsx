@@ -23,7 +23,7 @@ export default function Confirmed() {
         <div className="eyebrow">REQUEST SENT</div>
         <h1>You’re one step closer.</h1>
         <p className="success-lede">
-          {ownerFirst} can see your request now. You’ll get a clear yes or no within 2 hours, or the request expires on
+          {ownerFirst} can see your request now. You’ll get a clear yes or no within 24 hours, or the request expires on
           its own.
         </p>
 
@@ -47,11 +47,14 @@ export default function Confirmed() {
             <span>2</span>
             <i />
             <span>3</span>
+            <i />
+            <span>4</span>
           </div>
           <div className="timeline-labels">
             <b>Requested</b>
             <span>Approved</span>
             <span>Pickup</span>
+            <span>Return</span>
           </div>
         </div>
 

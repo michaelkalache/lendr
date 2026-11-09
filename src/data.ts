@@ -1,3 +1,5 @@
+import { spotName } from "./spots";
+
 export type Category = "Projectors" | "Tools" | "Outdoors";
 
 /** A lender. Sample lenders carry made-up stats; real members only have a name and program. */
@@ -25,7 +27,7 @@ export type Item = {
   alt: string;
   description: string;
   coverage: number;
-  /** Meetup spot; defaults to the Student Center. */
+  /** Drop-off spot id (see spots.ts); defaults to the Student Center. */
   pickup?: string;
   /** ISO timestamp, set on listings created in the app. */
   createdAt?: string;
@@ -222,7 +224,17 @@ const rawSamples: Omit<Item, "sample">[] = [
   },
 ];
 
-export const sampleItems: Item[] = rawSamples.map((item) => ({ ...item, sample: true }));
+// Each sample lender's usual drop-off spot.
+const sampleSpots: Record<string, string> = {
+  jordan: "student-center",
+  priya: "merage",
+  alex: "engineering-gateway",
+  nina: "langson",
+  sam: "mesa-court",
+  dani: "science-library",
+};
+
+export const sampleItems: Item[] = rawSamples.map((item) => ({ ...item, pickup: sampleSpots[item.ownerId], sample: true }));
 
 export const categories: { name: Category; symbol: string }[] = [
   { name: "Projectors", symbol: "▱" },
@@ -230,9 +242,8 @@ export const categories: { name: Category; symbol: string }[] = [
   { name: "Outdoors", symbol: "△" },
 ];
 
-export const PICKUP_SPOT = "UCI Student Center";
-
-export const pickupOf = (item: Item) => item.pickup?.trim() || PICKUP_SPOT;
+/** Name of the spot where this item is dropped off and returned by default. */
+export const pickupOf = (item: Item) => spotName(item.pickup);
 
 const SYMBOLS: Record<Category, string> = { Projectors: "▱", Tools: "⌁", Outdoors: "△" };
 
@@ -312,7 +323,7 @@ export type SampleReview = { itemId: string; author: string; rating: number; bod
 
 export const sampleReviews: SampleReview[] = [
   { itemId: "epson-mini-projector", author: "Maya K.", rating: 5, body: "Bright enough for a dorm lounge with the lights half on. HDMI cable and case were included like the listing said.", date: "2026-10-04" },
-  { itemId: "epson-mini-projector", author: "Chris P.", rating: 5, body: "Used it for a club presentation. Easy pickup at the Student Center.", date: "2026-09-21" },
+  { itemId: "epson-mini-projector", author: "Chris P.", rating: 5, body: "Used it for a club presentation. Easy pickup from the Student Center drop-off.", date: "2026-09-21" },
   { itemId: "epson-mini-projector", author: "Leah W.", rating: 4, body: "Works great. The remote needed new batteries, so bring a couple AAAs.", date: "2026-09-12" },
   { itemId: "two-person-tent", author: "Omar F.", rating: 5, body: "Set up in ten minutes at Crystal Cove. Stayed dry through a light drizzle.", date: "2026-10-11" },
   { itemId: "two-person-tent", author: "Grace L.", rating: 4, body: "Clean and complete. A little snug for two people with big packs.", date: "2026-09-28" },

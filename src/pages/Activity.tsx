@@ -1,19 +1,42 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { EmptyState } from "../components";
-import { firstName, initials, photoSrc, pickupOf, type Item } from "../data";
-import { formatRange, formatTime, formatWhen } from "../dates";
+import { firstName, initials, photoSrc, type Item } from "../data";
+import { formatDeadline, formatRange, formatWhen } from "../dates";
+import { Handoff } from "../handoff";
 import { Icon } from "../Icon";
-import { REQUEST_TTL_MS, displayStatus, useStore, type BorrowRequest, type DisplayStatus } from "../store";
+import { spotName } from "../spots";
+import {
+  REQUEST_TTL_MS,
+  isActiveBorrow,
+  isOpen,
+  isOverdue,
+  stageOf,
+  turnOf,
+  useStore,
+  type BorrowRequest,
+  type Stage,
+} from "../store";
 import { ReviewForm, Stars } from "../trust";
 
-const STATUS_LABEL: Record<DisplayStatus, string> = {
-  pending: "PENDING",
-  approved: "APPROVED",
-  declined: "DECLINED",
-  cancelled: "CANCELLED",
-  expired: "EXPIRED",
-};
+function stageLabel(request: BorrowRequest, role: "lender" | "borrower") {
+  const stage = stageOf(request);
+  if (isOverdue(request)) return "OVERDUE";
+  const labels: Record<Stage, string> = {
+    pending: "PENDING",
+    expired: "EXPIRED",
+    declined: "DECLINED",
+    cancelled: "CANCELLED",
+    approved: role === "lender" ? "APPROVED · DROP IT OFF" : "APPROVED · AWAITING DROP-OFF",
+    ready: "READY FOR PICKUP",
+    out: role === "lender" ? "LENT OUT" : "BORROWING",
+    returned: role === "lender" ? "RETURNED · CONFIRM IT’S BACK" : "RETURNED",
+    completed: "COMPLETE",
+  };
+  return labels[stage];
+}
+
+const stageClass = (request: BorrowRequest) => `status-${stageOf(request)}${isOverdue(request) ? " is-overdue" : ""}`;
 
 const expiresAt = (request: BorrowRequest) =>
   new Date(new Date(request.createdAt).getTime() + REQUEST_TTL_MS).toISOString();
@@ -25,11 +48,9 @@ function RequestCard({ request, item }: { request: BorrowRequest; item: Item }) 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const ownerFirst = firstName(ownerOf(item).name);
-  const status = displayStatus(request);
+  const stage = stageOf(request);
   const thread = threadFor(item.id, request.borrowerId);
   const review = reviewForRequest(request.id);
-  // Reviews open once the borrow has started.
-  const canReview = request.start <= new Date().toISOString().slice(0, 10);
 
   const cancel = async () => {
     setBusy(true);
@@ -39,11 +60,11 @@ function RequestCard({ request, item }: { request: BorrowRequest; item: Item }) 
   };
 
   return (
-    <article className={`activity-card status-${status}`}>
+    <article className={`activity-card ${stageClass(request)}`} data-request={request.id}>
       <button className="activity-item" onClick={() => navigate(`/items/${item.id}`)}>
         <img src={photoSrc(item)} alt="" />
         <div>
-          <span className="status-tag">{STATUS_LABEL[status]}</span>
+          <span className="status-tag">{stageLabel(request, "borrower")}</span>
           <h3>{item.title}</h3>
           <p>
             {formatRange(request.start, request.end)} · ${request.total} total
@@ -52,7 +73,7 @@ function RequestCard({ request, item }: { request: BorrowRequest; item: Item }) 
         <Icon name="chevron" />
       </button>
 
-      {status === "pending" ? (
+      {stage === "pending" && (
         <>
           <div className="progress-list">
             <div className="complete">
@@ -71,15 +92,17 @@ function RequestCard({ request, item }: { request: BorrowRequest; item: Item }) 
               <div>
                 <b>Waiting for approval</b>
                 <p>
-                  {ownerFirst} has until {formatTime(expiresAt(request))} to respond
+                  {ownerFirst} has until {formatDeadline(expiresAt(request))} to respond
                 </p>
               </div>
             </div>
             <div>
               <span>3</span>
               <div>
-                <b>Meet & pick up</b>
-                <p>{pickupOf(item)}</p>
+                <b>Drop-off & pickup</b>
+                <p>
+                  {ownerFirst} leaves it at {spotName(request.pickupSpot)}, you return it to {spotName(request.returnSpot)}
+                </p>
               </div>
             </div>
           </div>
@@ -94,33 +117,36 @@ function RequestCard({ request, item }: { request: BorrowRequest; item: Item }) 
             )}
           </div>
         </>
-      ) : (
-        <div className="closed-note">
-          {status === "expired" && <p>{ownerFirst} didn’t respond within 2 hours, so this request expired.</p>}
-          {status === "cancelled" && <p>You cancelled this request.</p>}
-          {status === "declined" && <p>{ownerFirst} couldn’t lend it for these dates.</p>}
-          {status === "approved" && (
-            <p>
-              {ownerFirst} approved it. Meet at {pickupOf(item)} and pay ${request.total} at pickup.
-            </p>
-          )}
-          {status === "approved" && thread ? (
-            <Link className={`${canReview && !review ? "secondary" : "primary"} link-button`} to={`/messages/${thread.id}`}>
-              <Icon name="message" /> {canReview ? "Messages" : "Plan pickup"}
-            </Link>
-          ) : (
-            <button className="secondary" onClick={() => navigate(`/explore?q=${encodeURIComponent(item.category)}`)}>
-              Find similar items
-            </button>
-          )}
-          {status === "approved" && canReview && !review && !reviewing && (
+      )}
+
+      {isActiveBorrow(stage) && <Handoff request={request} item={item} role="borrower" />}
+
+      {stage === "completed" && (
+        <div className="closed-note complete-note">
+          <p>
+            <b>Borrow complete.</b> {ownerFirst} confirmed the {item.title} is back
+            {request.receivedAt ? ` (${formatWhen(request.receivedAt).replace(/^./, (c) => c.toLowerCase())})` : ""}.
+          </p>
+          {!review && !reviewing && (
             <button className="primary" onClick={() => setReviewing(true)}>
               <Icon name="star" size={16} /> Rate this item
             </button>
           )}
         </div>
       )}
-      {status === "approved" && reviewing && !review && (
+
+      {(stage === "expired" || stage === "cancelled" || stage === "declined") && (
+        <div className="closed-note">
+          {stage === "expired" && <p>{ownerFirst} didn’t respond within 24 hours, so this request expired.</p>}
+          {stage === "cancelled" && <p>This borrow was cancelled.</p>}
+          {stage === "declined" && <p>{ownerFirst} couldn’t lend it for these dates.</p>}
+          <button className="secondary" onClick={() => navigate(`/explore?q=${encodeURIComponent(item.category)}`)}>
+            Find similar items
+          </button>
+        </div>
+      )}
+
+      {stage === "completed" && reviewing && !review && (
         <div className="card-review">
           <ReviewForm requestId={request.id} itemTitle={item.title} onDone={() => setReviewing(false)} />
         </div>
@@ -129,6 +155,16 @@ function RequestCard({ request, item }: { request: BorrowRequest; item: Item }) 
         <div className="card-reviewed">
           <Stars value={review.rating} /> <span>You reviewed this item{review.body ? `: “${review.body}”` : "."}</span>
         </div>
+      )}
+      {isActiveBorrow(stage) && thread && (
+        <Link className="activity-message borrower-message" to={`/messages/${thread.id}`}>
+          <Icon name="message" />
+          <span>
+            <b>Message {ownerFirst}</b>
+            <small>Questions about the drop-off or return</small>
+          </span>
+          <Icon name="chevron" />
+        </Link>
       )}
       {error && (
         <p className="form-error card-error" role="alert">
@@ -145,8 +181,9 @@ function IncomingCard({ request, item }: { request: BorrowRequest; item: Item })
   const [error, setError] = useState("");
   const borrower = person(request.borrowerId);
   const borrowerFirst = firstName(borrower.name);
-  const status = displayStatus(request);
+  const stage = stageOf(request);
   const thread = threadFor(item.id, request.borrowerId);
+  const review = reviewForRequest(request.id);
 
   const decide = async (next: "approved" | "declined") => {
     setBusy(true);
@@ -157,7 +194,7 @@ function IncomingCard({ request, item }: { request: BorrowRequest; item: Item })
   };
 
   return (
-    <article className={`activity-card lender-card status-${status}`}>
+    <article className={`activity-card lender-card ${stageClass(request)}`} data-request={request.id}>
       <div className="borrower">
         <div className="avatar violet">{initials(borrower.name)}</div>
         <div>
@@ -165,14 +202,14 @@ function IncomingCard({ request, item }: { request: BorrowRequest; item: Item })
             <Link to={`/people/${borrower.id}`} className="person-link">
               {borrower.name}
             </Link>{" "}
-            wants your {item.title}
+            {stage === "pending" ? "wants" : "is borrowing"} your {item.title}
           </h3>
           <p>
             {borrower.program ? `${borrower.program} · ` : ""}
             {formatWhen(request.createdAt)}
           </p>
         </div>
-        <span className="status-tag">{STATUS_LABEL[status]}</span>
+        <span className="status-tag">{stageLabel(request, "lender")}</span>
       </div>
       <div className="request-facts">
         <div>
@@ -180,17 +217,22 @@ function IncomingCard({ request, item }: { request: BorrowRequest; item: Item })
           <b>{formatRange(request.start, request.end)}</b>
         </div>
         <div>
-          <span>PICKUP</span>
-          <b>{pickupOf(item)}</b>
+          <span>DROP-OFF</span>
+          <b>{spotName(request.pickupSpot)}</b>
         </div>
         <div>
           <span>YOU EARN</span>
           <b>${request.total}</b>
         </div>
       </div>
-      {status === "pending" && (
+      {stage === "pending" && (
         <>
-          <p className="decide-note">Respond by {formatTime(expiresAt(request))} or the request expires.</p>
+          {request.returnSpot !== request.pickupSpot && (
+            <p className="decide-note">
+              {borrowerFirst} would return it to <b>{spotName(request.returnSpot)}</b>.
+            </p>
+          )}
+          <p className="decide-note">Respond by {formatDeadline(expiresAt(request))} or the request expires.</p>
           <div className="decision">
             <button className="secondary" onClick={() => decide("declined")} disabled={busy}>
               Decline
@@ -201,30 +243,33 @@ function IncomingCard({ request, item }: { request: BorrowRequest; item: Item })
           </div>
         </>
       )}
-      {status === "approved" && (
+      {isActiveBorrow(stage) && <Handoff request={request} item={item} role="lender" />}
+      {stage === "completed" && (
         <div className="approved-banner">
           <Icon name="check" />
           <div>
-            <b>You accepted</b>
-            <p>Coordinate pickup with {borrowerFirst} in Messages.</p>
+            <b>Borrow complete</b>
+            <p>
+              You confirmed the {item.title} is back. {review ? "" : `${borrowerFirst} can now rate it.`}
+            </p>
           </div>
         </div>
       )}
-      {status !== "pending" && status !== "approved" && (
+      {(stage === "declined" || stage === "cancelled" || stage === "expired") && (
         <div className="closed-note">
           <p>
-            {status === "declined" && "You declined this request."}
-            {status === "cancelled" && `${borrowerFirst} cancelled this request.`}
-            {status === "expired" && "This request expired after 2 hours without a response."}
+            {stage === "declined" && "You declined this request."}
+            {stage === "cancelled" && "This borrow was cancelled."}
+            {stage === "expired" && "This request expired after 24 hours without a response."}
           </p>
         </div>
       )}
-      {reviewForRequest(request.id) && (
+      {review && (
         <div className="card-reviewed in-lender">
-          <Stars value={reviewForRequest(request.id)!.rating} />{" "}
+          <Stars value={review.rating} />{" "}
           <span>
             {borrowerFirst} reviewed your {item.title}
-            {reviewForRequest(request.id)!.body ? `: “${reviewForRequest(request.id)!.body}”` : "."}
+            {review.body ? `: “${review.body}”` : "."}
           </span>
         </div>
       )}
@@ -249,20 +294,23 @@ function IncomingCard({ request, item }: { request: BorrowRequest; item: Item })
 
 function split(list: BorrowRequest[]) {
   return {
-    open: list.filter((request) => displayStatus(request) === "pending"),
-    closed: list.filter((request) => displayStatus(request) !== "pending"),
+    pending: list.filter((request) => stageOf(request) === "pending"),
+    active: list.filter((request) => isActiveBorrow(stageOf(request))),
+    closed: list.filter((request) => !isOpen(request)),
   };
 }
 
 function Borrowing() {
-  const { requests, findItem } = useStore();
-  const { open, closed } = split(requests);
+  const { requests, findItem, reviewForRequest } = useStore();
+  const { pending, active, closed } = split(requests);
+  const toReview = closed.filter((request) => request.status === "completed" && !reviewForRequest(request.id));
+  const past = closed.filter((request) => !toReview.includes(request));
 
   if (!requests.length) {
     return (
       <EmptyState
         title="No requests yet"
-        body="When you request an item, you’ll track approval and pickup here."
+        body="When you request an item, you’ll track approval, pickup, and return here."
         action={{ to: "/explore", label: "Browse items" }}
       />
     );
@@ -276,39 +324,67 @@ function Borrowing() {
 
   return (
     <>
-      {open.length > 0 && (
+      {active.length > 0 && (
         <>
           <div className="activity-heading">
-            <h2>{open.length === 1 ? "Your request" : "Your requests"}</h2>
+            <h2>Borrowing now</h2>
+            <span>
+              <i /> Drop-off, pickup & return
+            </span>
+          </div>
+          <div className="activity-list">{render(active)}</div>
+        </>
+      )}
+      {toReview.length > 0 && (
+        <>
+          <div className="activity-heading">
+            <h2>Rate what you borrowed</h2>
+          </div>
+          <div className="activity-list">{render(toReview)}</div>
+        </>
+      )}
+      {pending.length > 0 && (
+        <>
+          <div className="activity-heading">
+            <h2>{pending.length === 1 ? "Your request" : "Your requests"}</h2>
             <span>
               <i /> Waiting for a response
             </span>
           </div>
-          <div className="activity-list">{render(open)}</div>
+          <div className="activity-list">{render(pending)}</div>
           <div className="certainty">
             <Icon name="shield" />
             <div>
               <b>No awkward follow-ups.</b>
-              <p>If a lender doesn’t respond in 2 hours, the request expires and you can find another.</p>
+              <p>If a lender doesn’t respond within 24 hours, the request expires and you can find another.</p>
             </div>
           </div>
         </>
       )}
-      {closed.length > 0 && (
+      {past.length > 0 && (
         <>
           <div className="activity-heading">
-            <h2>Past requests</h2>
+            <h2>Past borrows & requests</h2>
           </div>
-          <div className="activity-list">{render(closed)}</div>
+          <div className="activity-list">{render(past)}</div>
         </>
       )}
+      <HelpNote />
     </>
+  );
+}
+
+function HelpNote() {
+  return (
+    <p className="activity-help">
+      <Icon name="shield" size={15} /> New to drop-offs and returns? <Link to="/help#borrowing">See how it works</Link>
+    </p>
   );
 }
 
 function Lending() {
   const { incoming, findItem, myListings } = useStore();
-  const { open, closed } = split(incoming);
+  const { pending, active, closed } = split(incoming);
 
   if (!incoming.length) {
     return myListings.length ? (
@@ -334,15 +410,26 @@ function Lending() {
 
   return (
     <>
-      {open.length > 0 && (
+      {pending.length > 0 && (
         <>
           <div className="activity-heading">
             <h2>Needs your response</h2>
             <span>
-              <i /> {open.length} waiting
+              <i /> {pending.length} waiting
             </span>
           </div>
-          <div className="activity-list">{render(open)}</div>
+          <div className="activity-list">{render(pending)}</div>
+        </>
+      )}
+      {active.length > 0 && (
+        <>
+          <div className="activity-heading">
+            <h2>Lent out</h2>
+            <span>
+              <i /> Drop-off, pickup & return
+            </span>
+          </div>
+          <div className="activity-list">{render(active)}</div>
         </>
       )}
       {closed.length > 0 && (
@@ -353,20 +440,22 @@ function Lending() {
           <div className="activity-list">{render(closed)}</div>
         </>
       )}
+      <HelpNote />
     </>
   );
 }
 
 export default function Activity() {
-  const { incoming } = useStore();
-  const waiting = incoming.filter((request) => displayStatus(request) === "pending").length;
-  const [tab, setTab] = useState<"borrowing" | "lending">(waiting ? "lending" : "borrowing");
+  const { incoming, requests } = useStore();
+  const waiting = incoming.filter((request) => turnOf(request) === "lender").length;
+  const myTurn = requests.filter((request) => turnOf(request) === "borrower").length;
+  const [tab, setTab] = useState<"borrowing" | "lending">(waiting && !myTurn ? "lending" : "borrowing");
   return (
     <div className="container narrow activity-page">
       <h1 className="page-title">Activity</h1>
       <div className="tabs" role="tablist">
         <button role="tab" aria-selected={tab === "borrowing"} className={tab === "borrowing" ? "active" : ""} onClick={() => setTab("borrowing")}>
-          Borrowing
+          Borrowing {myTurn > 0 && <span>{myTurn}</span>}
         </button>
         <button role="tab" aria-selected={tab === "lending"} className={tab === "lending" ? "active" : ""} onClick={() => setTab("lending")}>
           Lending {waiting > 0 && <span>{waiting}</span>}

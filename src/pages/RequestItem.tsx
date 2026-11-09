@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { BackLink } from "../components";
-import { firstName, photoSrc, pickupOf, rentalCost } from "../data";
+import { firstName, photoSrc, rentalCost } from "../data";
+import { SpotMap, SpotSelect } from "../handoff";
+import { DEFAULT_SPOT, isSpot, spotName } from "../spots";
 import { addDays, daysInclusive, formatDay, formatMonth, sameDay, startOfDay, toISODate } from "../dates";
 import { Icon } from "../Icon";
 import { useStore } from "../store";
@@ -82,8 +84,11 @@ export default function RequestItem() {
   const [end, setEnd] = useState<Date | null>(addDays(tomorrow, 2));
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-
   const item = findItem(itemId);
+  const listingSpot = isSpot(item?.pickup) ? item!.pickup! : DEFAULT_SPOT;
+  const [pickupSpot, setPickupSpot] = useState(listingSpot);
+  const [returnSpot, setReturnSpot] = useState(listingSpot);
+
   if (!item) return <NotFound />;
   if (isMine(item) || item.sample) return <Navigate to={`/items/${item.id}`} replace />;
   const owner = ownerOf(item);
@@ -114,7 +119,7 @@ export default function RequestItem() {
       return;
     }
     setBusy(true);
-    const result = await createRequest(item.id, toISODate(start), toISODate(end));
+    const result = await createRequest(item.id, toISODate(start), toISODate(end), { pickup: pickupSpot, return: returnSpot });
     setBusy(false);
     if (result.ok) navigate(`/requests/${result.value}`, { replace: true });
     else setError(result.error);
@@ -142,7 +147,7 @@ export default function RequestItem() {
               <div>
                 <h2>Choose your dates</h2>
                 <p>
-                  Tap a start day, then a return day · {ownerFirst} has 2 hours to respond
+                  Tap a start day, then a return day · {ownerFirst} has 24 hours to respond
                 </p>
               </div>
             </div>
@@ -151,13 +156,13 @@ export default function RequestItem() {
               <div>
                 <span>START</span>
                 <b>{start ? formatDay(start) : "Pick a day"}</b>
-                <p>After 2:00 PM</p>
+                <p>Pick up from the spot</p>
               </div>
               <Icon name="send" />
               <div>
                 <span>RETURN</span>
                 <b>{end ? formatDay(end) : "Pick a day"}</b>
-                <p>Before 6:00 PM</p>
+                <p>Drop it back by end of day</p>
               </div>
             </div>
             {error && (
@@ -171,21 +176,19 @@ export default function RequestItem() {
             <div className="step-label">
               <span>2</span>
               <div>
-                <h2>Pickup preference</h2>
+                <h2>Drop-off spots</h2>
+                <p>
+                  No meetup: {ownerFirst} leaves it at a campus spot, you return it to one. {ownerFirst} usually uses{" "}
+                  {spotName(listingSpot)}.
+                </p>
               </div>
             </div>
-            <div className="choice selected-choice">
-              <span>
-                <Icon name="map" />
-              </span>
-              <div>
-                <b>{pickupOf(item)}</b>
-                <p>On campus · suggested by {ownerFirst}</p>
-              </div>
-              <i>
-                <Icon name="check" size={14} />
-              </i>
+            <div className="spot-pair">
+              <SpotSelect label="Pick it up from" value={pickupSpot} onChange={setPickupSpot} />
+              <SpotSelect label="Return it to" value={returnSpot} onChange={setReturnSpot} />
             </div>
+            <SpotMap spotId={pickupSpot} label={`Show ${spotName(pickupSpot)} on the UCI map`} />
+            {returnSpot !== pickupSpot && <SpotMap spotId={returnSpot} label={`Show ${spotName(returnSpot)} on the UCI map`} />}
           </section>
 
           <div className="responsibility-note">
@@ -193,8 +196,8 @@ export default function RequestItem() {
             <p>
               <b>Damage responsibility</b>
               <br />
-              By requesting, you agree to cover verified damage beyond normal wear, up to ${item.coverage}. Share
-              pickup and return photos in Messages so any issue can be settled fairly.
+              By requesting, you agree to cover verified damage beyond normal wear, up to ${item.coverage}. Snap a
+              photo when you pick it up and when you drop it back, and share them in Messages.
             </p>
           </div>
         </div>
@@ -212,7 +215,9 @@ export default function RequestItem() {
             <button className="primary" onClick={send} aria-disabled={!ready} disabled={busy}>
               {busy ? "Sending…" : `Send request to ${ownerFirst}`}
             </button>
-            <p className="action-note">Nothing is charged online. Pay {ownerFirst} at pickup once they accept.</p>
+            <p className="action-note">
+              Nothing is charged online. Pay {ownerFirst} directly (Venmo, Zelle, or cash) once you pick it up.
+            </p>
           </div>
         </aside>
       </div>

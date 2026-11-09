@@ -52,13 +52,13 @@ function ThreadView({ thread }: { thread: Thread }) {
   const quickReplies = iAmLender
     ? [
         ["Confirm availability", `Yes, the ${item.title} is available for those dates.`],
-        ["Plan pickup", `Can we meet at ${pickupOf(item)}? What time works for you?`],
+        ["Drop-off timing", `I’ll drop it off at ${pickupOf(item)}. When are you planning to pick it up?`],
         ["Ask for return photo", "Please share a photo of the item when you return it."],
       ]
     : [
         ["Confirm availability", `Is the ${item.title} still available for my dates?`],
-        ["Plan pickup", `Can we meet at ${pickupOf(item)}?`],
-        ["Share condition", "I’ll share a pickup condition photo here."],
+        ["Drop-off timing", `When will you drop it off at ${pickupOf(item)}?`],
+        ["Share condition", "Here’s a photo of the item when I picked it up."],
       ];
 
   return (
@@ -95,7 +95,7 @@ function ThreadView({ thread }: { thread: Thread }) {
       <div className="chat-scroll" ref={scrollRef}>
         <div className="chat-thread" aria-live="polite">
           {thread.messages.length === 0 && (
-            <p className="chat-empty">Say hi to {otherFirst} — ask about the item, dates, or pickup.</p>
+            <p className="chat-empty">Say hi to {otherFirst} — ask about the item, dates, or drop-off.</p>
           )}
           {thread.messages.map((message, index) => {
             const prev = thread.messages[index - 1];

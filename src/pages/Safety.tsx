@@ -21,17 +21,22 @@ const GUARDRAILS: { icon: IconName; title: string; body: string }[] = [
   {
     icon: "star",
     title: "Reviews from real borrows only",
-    body: "Only someone whose borrow was approved can review that item, once per borrow. Ratings can’t be padded by friends or by the lender.",
+    body: "Only someone who actually borrowed and returned an item can review it, once per borrow, after the lender confirms it’s back. Ratings can’t be padded by friends or by the lender.",
   },
   {
     icon: "check",
     title: "Lenders approve every borrow",
-    body: "Nothing is lent automatically. Requests expire after 2 hours without an answer, and prices are calculated by the server, not the browser.",
+    body: "Nothing is lent automatically. Requests expire after 24 hours without an answer, and prices are calculated by the server, not the browser.",
   },
   {
     icon: "message",
     title: "Private, in-app coordination",
-    body: "Only the two people in a conversation can read it. Keep pickup plans and condition photos in Messages so any issue can be settled fairly.",
+    body: "Only the two people in a conversation can read it. Keep drop-off details and condition photos in Messages so any issue can be settled fairly.",
+  },
+  {
+    icon: "map",
+    title: "No-meetup handoffs",
+    body: "Items are left at public campus spots like the Student Center or a library, so students never have to meet a stranger. Each step (dropped off, picked up, returned, confirmed back) is logged with a time and place.",
   },
   {
     icon: "key",
@@ -73,11 +78,12 @@ export default function Safety() {
       </section>
 
       <section className="safety-section">
-        <h2>Meeting up</h2>
+        <h2>Drop-offs and returns</h2>
         <ul>
-          <li>Meet in a public spot on campus, like the Student Center, in daylight when you can.</li>
+          <li>Use one of the listed campus spots, and add a short note on exactly where you left it.</li>
+          <li>Pick items up and drop them back promptly, so nothing sits unattended for long.</li>
           <li>Take a photo of the item at pickup and at return, and share it in the chat.</li>
-          <li>Pay the lender at pickup. Never send money before you’ve seen the item.</li>
+          <li>Pay the lender once you have the item. Never send money for something you haven’t picked up.</li>
         </ul>
       </section>
 

@@ -1,11 +1,12 @@
 import { useEffect } from "react";
-import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
+import { Link, Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { BottomNav, SiteHeader } from "./components";
 import Account from "./pages/Account";
 import Activity from "./pages/Activity";
 import Confirmed from "./pages/Confirmed";
 import Detail from "./pages/Detail";
 import Explore from "./pages/Explore";
+import Help from "./pages/Help";
 import Home from "./pages/Home";
 import ListItem from "./pages/ListItem";
 import Messages from "./pages/Messages";
@@ -29,16 +30,38 @@ const TITLES: [RegExp, string][] = [
   [/^\/account/, "Account"],
   [/^\/people\//, "Profile"],
   [/^\/safety/, "Trust & safety"],
+  [/^\/help/, "How lendr works"],
   [/^\/(welcome|login)/, "Join lendr"],
 ];
 
 function usePageTitle() {
-  const { pathname } = useLocation();
+  const { pathname, hash } = useLocation();
   useEffect(() => {
-    window.scrollTo(0, 0);
+    // Links to a section (like /help#spots) scroll there instead.
+    if (!hash) window.scrollTo(0, 0);
     const title = TITLES.find(([pattern]) => pattern.test(pathname))?.[1];
     document.title = title ? `${title} · lendr` : "lendr — Borrow on campus";
   }, [pathname]);
+}
+
+/** The help page for people who haven't signed up yet. */
+function PublicHelp() {
+  return (
+    <div className="public-page">
+      <header className="welcome-top public-top">
+        <Link to="/welcome" className="brand-lockup" aria-label="lendr home">
+          <span className="brand">
+            lendr<span>.</span>
+          </span>
+          <span className="uci-mark">UCI</span>
+        </Link>
+        <Link to="/welcome" className="primary link-button">
+          Join lendr
+        </Link>
+      </header>
+      <Help signedIn={false} />
+    </div>
+  );
 }
 
 function Splash({ text = "Loading lendr…" }: { text?: string }) {
@@ -108,6 +131,7 @@ export default function App() {
       <Routes>
         <Route path="welcome" element={<Welcome />} />
         <Route path="login" element={<Welcome initialMode="login" />} />
+        <Route path="help" element={<PublicHelp />} />
         <Route path="*" element={<Navigate to="/welcome" replace state={{ from: location.pathname + location.search }} />} />
       </Routes>
     );
@@ -135,6 +159,7 @@ export default function App() {
         <Route path="account" element={<Account />} />
         <Route path="people/:personId" element={<Person />} />
         <Route path="safety" element={<Safety />} />
+        <Route path="help" element={<Help />} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>

@@ -103,7 +103,7 @@ export default function Welcome({ initialMode = "signup" }: { initialMode?: Mode
           </p>
           <ul className="welcome-points">
             <li>
-              <Icon name="check" size={16} /> Sign up and confirm with your @uci.edu email
+              <Icon name="check" size={16} /> Sign up with your @uci.edu email
             </li>
             <li>
               <Icon name="check" size={16} /> Lenders approve every borrow

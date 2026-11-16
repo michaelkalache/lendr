@@ -59,7 +59,10 @@ export default function Person() {
         {profile.sample ? (
           <>
             <div>
-              <strong>{profile.rating}</strong>
+              <strong>
+                {profile.rating}
+                <small> / 5.0</small>
+              </strong>
               <span>
                 <Icon name="star" size={13} filled /> Rating <em className="stat-sample">sample</em>
               </span>
@@ -74,7 +77,10 @@ export default function Person() {
         ) : (
           <>
             <div>
-              <strong>{rating ? rating.average.toFixed(1) : "—"}</strong>
+              <strong>
+                {rating ? rating.average.toFixed(1) : "—"}
+                {rating && <small> / 5.0</small>}
+              </strong>
               <span>
                 <Icon name="star" size={13} filled /> {rating ? `${rating.count} item ${rating.count === 1 ? "review" : "reviews"}` : "No reviews yet"}
               </span>

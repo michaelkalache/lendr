@@ -4,7 +4,7 @@ import { Icon } from "./Icon";
 import { useStore, type Rating, type ReportReason, type Review } from "./store";
 
 /* ───────── Stars ───────── */
-export function Stars({ value, size = 14 }: { value: number; size?: number }) {
+export function Stars({ value, size = 14, showScore = false }: { value: number; size?: number; showScore?: boolean }) {
   return (
     <span className="stars" aria-label={`${value} out of 5 stars`}>
       {[1, 2, 3, 4, 5].map((n) => (
@@ -12,6 +12,11 @@ export function Stars({ value, size = 14 }: { value: number; size?: number }) {
           <Icon name="star" size={size} filled />
         </span>
       ))}
+      {showScore && (
+        <b className="stars-score" aria-hidden="true">
+          {value.toFixed(1)} / 5.0
+        </b>
+      )}
     </span>
   );
 }
@@ -22,6 +27,7 @@ export function RatingBadge({ rating, compact = false }: { rating: Rating | null
     <span className="rating-badge" title={rating.sample ? "Sample reviews" : undefined}>
       <Icon name="star" size={compact ? 12 : 14} filled />
       <b>{rating.average.toFixed(1)}</b>
+      <span className="out-of">/ 5.0</span>
       <span>({rating.count})</span>
     </span>
   );
@@ -101,7 +107,7 @@ export function ReviewList({ reviews }: { reviews: Review[] }) {
       {reviews.map((review) => (
         <li key={review.id} className={review.sample ? "is-sample" : ""}>
           <div className="review-head">
-            <Stars value={review.rating} />
+            <Stars value={review.rating} showScore />
             {review.sample ? (
               <span className="sample-pill">Sample review</span>
             ) : review.authorId ? (

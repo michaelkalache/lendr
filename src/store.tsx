@@ -176,7 +176,13 @@ export function friendlyError(error: { message?: string } | null | undefined): s
     return "An account with this email already exists. Log in instead.";
   if (/invalid login credentials/i.test(message)) return "That email and password don’t match.";
   if (/password should be at least/i.test(message)) return "Use a password with at least 8 characters.";
-  if (/rate limit|too many requests/i.test(message)) return "Too many attempts. Wait a minute and try again.";
+  if (/rate limit|too many requests|only request this after/i.test(message))
+    return "Too many attempts. Wait a minute and try again.";
+  if (/token has expired|otp_expired|invalid otp|token.*invalid/i.test(message))
+    return "That code is wrong or has expired. Check your latest email, or send a new code.";
+  if (/email not confirmed/i.test(message)) return "Confirm your email first. We sent you a code.";
+  if (/listings_photo_required/i.test(message)) return "Add a photo of the item. Every listing needs one.";
+  if (/listings_category_check/i.test(message)) return "Pick a category from the list.";
   if (/failed to fetch|network/i.test(message)) return "Can’t reach the server. Check your connection and try again.";
   if (/invalid input syntax|violates check constraint "reviews_rating/i.test(message)) return "Pick a rating from 1 to 5 stars.";
   if (/reports_once_per/i.test(message)) return "You’ve already reported this.";
@@ -217,6 +223,9 @@ export function friendlyError(error: { message?: string } | null | undefined): s
   if (match) return match.replace(/'/g, "’") + ".";
   return message || "Something went wrong. Please try again.";
 }
+
+/** Where the link in the confirmation email lands (it signs the person in). */
+const EMAIL_REDIRECT = typeof window === "undefined" ? undefined : `${window.location.origin}/`;
 
 const fail = <T,>(error: { message?: string } | null | undefined): Result<T> => ({ ok: false, error: friendlyError(error) });
 
@@ -297,7 +306,11 @@ type Store = {
   threadFor: (itemId: string, borrowerId: string) => Thread | undefined;
 
   signUp: (input: { name: string; email: string; password: string; program: string }) => Promise<Result<{ needsConfirmation: boolean }>>;
-  signIn: (email: string, password: string) => Promise<Result>;
+  /** Logs in. `needsConfirmation` means the password was right but the email isn’t confirmed yet. */
+  signIn: (email: string, password: string) => Promise<Result<{ needsConfirmation: boolean }>>;
+  /** Confirm a new account with the 6-digit code from the confirmation email (signs the person in). */
+  verifyEmail: (email: string, code: string) => Promise<Result>;
+  resendConfirmation: (email: string) => Promise<Result>;
   signOut: () => Promise<void>;
   updateProfile: (input: { name: string; program: string }) => Promise<Result>;
   toggleFavorite: (itemId: string) => Promise<void>;
@@ -515,11 +528,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   );
 
   /* ───────── Actions ───────── */
+  /** Give a brand-new account its first recovery code, shown once. */
+  const issueFirstRecoveryCode = async () => {
+    const has = await supabase.rpc("has_recovery_code");
+    if (has.error || has.data) return;
+    const code = await supabase.rpc("create_recovery_code");
+    if (!code.error && code.data) {
+      setHasRecoveryCode(true);
+      setRecoveryCodeToShow(code.data as string);
+    }
+  };
+
   const signUp: Store["signUp"] = async ({ name, email, password, program }) => {
     const { data, error } = await supabase.auth.signUp({
       email: email.trim().toLowerCase(),
       password,
-      options: { data: { name: name.trim(), program: program.trim() } },
+      options: { data: { name: name.trim(), program: program.trim() }, emailRedirectTo: EMAIL_REDIRECT },
     });
     if (error) return fail(error);
     // Supabase hides "already registered" behind a fake success when email confirmation is on.
@@ -537,6 +561,26 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const signIn: Store["signIn"] = async (email, password) => {
     const { error } = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
+    if (error && (error.code === "email_not_confirmed" || /email not confirmed/i.test(error.message)))
+      return { ok: true, value: { needsConfirmation: true } };
+    return error ? fail(error) : { ok: true, value: { needsConfirmation: false } };
+  };
+
+  const verifyEmail: Store["verifyEmail"] = async (email, code) => {
+    const token = code.replace(/\D/g, "");
+    if (token.length !== 6) return { ok: false, error: "Enter the 6-digit code from the email." };
+    const { data, error } = await supabase.auth.verifyOtp({ email: email.trim().toLowerCase(), token, type: "email" });
+    if (error) return fail(error);
+    if (data.session) await issueFirstRecoveryCode();
+    return { ok: true, value: undefined };
+  };
+
+  const resendConfirmation: Store["resendConfirmation"] = async (email) => {
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email: email.trim().toLowerCase(),
+      options: { emailRedirectTo: EMAIL_REDIRECT },
+    });
     return error ? fail(error) : { ok: true, value: undefined };
   };
 
@@ -579,6 +623,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const saveListing: Store["saveListing"] = async (input, existingId) => {
     if (!userId) return { ok: false, error: "You’re signed out." };
+    if (!input.photo) return { ok: false, error: "Add a photo of the item. Every listing needs one." };
     let photoUrl: string | null = input.photo || null;
     if (input.photo.startsWith("data:")) {
       const uploaded = await uploadPhoto(input.photo);
@@ -828,6 +873,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     threadFor: (itemId, borrowerId) =>
       derived.threads.find((thread) => thread.itemId === itemId && thread.borrowerId === borrowerId),
     signUp,
+    verifyEmail,
+    resendConfirmation,
     signIn,
     signOut,
     updateProfile,

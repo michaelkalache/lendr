@@ -5201,3 +5201,381 @@ ol.progress-list {
   margin: 14px 0 0 -4px;
   color: var(--gold-soft);
 }
+
+/* ───────── Update 4: anteater mark, categories, grid density, bundle savings, photos, ratings, email ───────── */
+.anteater-mark {
+  display: block;
+  flex: none;
+}
+
+.brand-anteater {
+  width: 38px;
+  height: auto;
+  margin-right: -2px;
+}
+
+.welcome-top .brand-anteater {
+  width: 44px;
+}
+
+.hero-anteater {
+  position: absolute;
+  left: 18px;
+  bottom: -6px;
+  width: 104px;
+  height: auto;
+  filter: drop-shadow(0 8px 14px rgba(3, 16, 31, 0.35));
+}
+
+.hero-art.compact .hero-anteater {
+  display: none;
+}
+
+.uci-hero .hero-anteater {
+  left: 4px;
+  bottom: 0;
+}
+
+.welcome-pitch .hero-anteater {
+  left: 0;
+}
+
+/* Category icons */
+.category-icon {
+  display: block;
+  flex: none;
+}
+
+.categories {
+  display: flex;
+  gap: 10px;
+  margin: 0 -20px;
+  padding: 2px 20px 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.categories::-webkit-scrollbar {
+  display: none;
+}
+
+.category {
+  flex: none;
+  width: 76px;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.category span {
+  width: 76px;
+  height: 64px;
+}
+
+.filter-chips button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.filter-chips button .category-icon {
+  color: var(--blue);
+}
+
+.filter-chips button.active .category-icon {
+  color: var(--navy);
+}
+
+.listing-form .segmented {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.listing-form .segmented button {
+  min-height: 74px;
+  padding: 10px 4px;
+  font-size: 12px;
+  line-height: 1.15;
+  text-align: center;
+}
+
+.listing-form .segmented button .category-icon {
+  color: var(--blue);
+}
+
+@media (min-width: 960px) {
+  .categories {
+    display: grid;
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+    margin: 0;
+    padding: 0;
+    overflow: visible;
+    row-gap: 16px;
+  }
+
+  .category,
+  .category span {
+    width: auto;
+  }
+}
+
+/* Grid density */
+.section-tools {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.grid-picker {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.grid-picker button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 8px;
+  color: var(--slate);
+  background: none;
+  border: 0;
+  border-radius: 9px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.grid-picker button:hover {
+  color: var(--navy);
+  background: var(--blue-pale);
+}
+
+.grid-picker button.active {
+  color: var(--navy);
+  background: var(--gold-soft);
+}
+
+.grid-picker.wide-only {
+  display: none;
+}
+
+.item-grid.phone-cols-1 {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.item-grid.phone-cols-1 .item-image {
+  height: 210px;
+}
+
+@media (min-width: 720px) {
+  .grid-picker.phone-only {
+    display: none;
+  }
+
+  .grid-picker.wide-only {
+    display: inline-flex;
+  }
+
+  .item-grid.cols-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .item-grid.cols-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .item-grid.cols-4,
+  .item-grid.cols-5 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .item-grid.cols-2 .item-image {
+    height: 260px;
+  }
+
+  .item-grid.cols-4 .item-image,
+  .item-grid.cols-5 .item-image {
+    height: 150px;
+  }
+}
+
+@media (min-width: 960px) {
+  .item-grid.cols-2 .item-image {
+    height: 320px;
+  }
+
+  .item-grid.cols-4 .item-image {
+    height: 170px;
+  }
+
+  .item-grid.cols-5 {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .item-grid.cols-5 .item-image {
+    height: 140px;
+  }
+
+  .item-grid.cols-5 .item-info {
+    padding: 12px;
+  }
+
+  .item-grid.cols-5 .item-info h3 {
+    font-size: 15px;
+  }
+}
+
+.explore-heading {
+  gap: 12px;
+}
+
+/* Ratings out of 5.0 */
+.item-price-row {
+  flex-wrap: wrap;
+}
+
+.item-rating small {
+  color: var(--slate);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.rating-badge .out-of {
+  color: var(--slate);
+  font-weight: 600;
+}
+
+.stars-score {
+  margin-left: 6px;
+  color: var(--navy);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.person-stats strong small {
+  color: var(--slate);
+  font-size: 0.55em;
+  font-weight: 700;
+}
+
+/* Bundle savings */
+.save-chip {
+  position: absolute;
+  left: 9px;
+  bottom: 9px;
+  z-index: 1;
+  padding: 4px 8px;
+  color: #fff;
+  background: var(--green);
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.was-price {
+  margin-left: 6px;
+  color: var(--faint);
+  font-size: 0.86em;
+  font-weight: 600;
+}
+
+.price .was-price {
+  font-size: 16px;
+}
+
+.bundle-save-line {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 6px 11px;
+  color: var(--green);
+  background: var(--green-bg);
+  border-radius: 10px;
+  font-size: 14px;
+}
+
+.bundle-save-line b {
+  font-weight: 800;
+}
+
+.bundle-savings {
+  display: block;
+  margin-top: 12px;
+}
+
+.bundle-math {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+
+.bundle-math span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  color: var(--slate);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.bundle-math span + span {
+  border-left: 1px solid var(--line);
+}
+
+.bundle-math b {
+  color: var(--navy);
+  font-size: 16px;
+}
+
+.bundle-math-save {
+  background: var(--green-bg);
+}
+
+.bundle-math-save b {
+  color: var(--green);
+}
+
+/* Required photo */
+.required-tag {
+  margin-left: 6px;
+  padding: 2px 7px;
+  color: var(--amber);
+  background: var(--amber-bg);
+  border-radius: 7px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+.photo-drop.has-error {
+  border-color: #c2412d;
+  border-style: solid;
+}
+
+/* Email confirmation */
+.form-note {
+  padding: 9px 12px;
+  color: var(--navy) !important;
+  background: var(--blue-soft);
+  border-radius: 10px;
+  font-size: 14px !important;
+}
+
+.confirm-email .auth-form {
+  width: 100%;
+  text-align: left;
+}
+
+.otp-input {
+  font-size: 22px !important;
+  letter-spacing: 8px !important;
+  text-align: center;
+}

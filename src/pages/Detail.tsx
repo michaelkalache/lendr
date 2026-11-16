@@ -63,9 +63,9 @@ export default function Detail() {
   };
 
   const ownerLine = owner.rating
-    ? `${owner.rating} · ${owner.lends} completed lends`
+    ? `${owner.rating} / 5.0 · ${owner.lends} completed lends`
     : ownerRating
-      ? `${ownerRating.average.toFixed(1)} lender rating from ${ownerRating.count} item ${ownerRating.count === 1 ? "review" : "reviews"}`
+      ? `${ownerRating.average.toFixed(1)} / 5.0 lender rating from ${ownerRating.count} item ${ownerRating.count === 1 ? "review" : "reviews"}`
       : owner.program
         ? owner.program
         : "UCI student";
@@ -134,8 +134,18 @@ export default function Detail() {
             )}
             <h1>{item.title}</h1>
             <div className="price">
-              <strong>${item.price}</strong> / day <span>${item.price * 4} max per week</span>
+              <strong>${item.price}</strong> / day
+              {savings && savings.saves > 0 && <s className="was-price">${savings.separate}</s>}
+              <span>${item.price * 4} max per week</span>
             </div>
+            {savings && savings.saves > 0 && (
+              <p className="bundle-save-line">
+                <b>
+                  Save ${savings.saves}/day ({savings.percent}%)
+                </b>{" "}
+                vs. borrowing the {parts.length} items separately · ${savings.saves * 4} off a week
+              </p>
+            )}
             {rating && (
               <a href="#reviews" className="detail-rating">
                 <RatingBadge rating={rating} /> {rating.sample ? "sample reviews" : rating.count === 1 ? "review" : "reviews"}
@@ -204,10 +214,22 @@ export default function Detail() {
                   ))}
                 </ul>
                 {savings && savings.saves > 0 && (
-                  <p className="bundle-savings">
-                    <Icon name="check" size={16} /> ${item.price}/day together instead of ${savings.separate}/day separately — save $
-                    {savings.saves} a day.
-                  </p>
+                  <div className="bundle-savings">
+                    <div className="bundle-math">
+                      <span>
+                        Separately <b>${savings.separate}/day</b>
+                      </span>
+                      <span>
+                        As a bundle <b>${item.price}/day</b>
+                      </span>
+                      <span className="bundle-math-save">
+                        You save{" "}
+                        <b>
+                          ${savings.saves}/day · {savings.percent}%
+                        </b>
+                      </span>
+                    </div>
+                  </div>
                 )}
               </section>
             )}

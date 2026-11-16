@@ -1,6 +1,7 @@
 import { useSearchParams } from "react-router-dom";
-import { EmptyState, HeroArt, ItemCard } from "../components";
-import { categories, searchItems } from "../data";
+import { categories } from "../categories";
+import { CategoryIcon, EmptyState, GridPicker, HeroArt, ItemCard, useGridClass } from "../components";
+import { searchItems } from "../data";
 import { Icon } from "../Icon";
 import { useStore } from "../store";
 
@@ -8,6 +9,7 @@ export default function Explore() {
   const [params, setParams] = useSearchParams();
   const query = params.get("q") ?? "";
   const { allItems } = useStore();
+  const gridClass = useGridClass();
   const { matchedCategory, normalized, results } = searchItems(query, allItems);
 
   const setQuery = (value: string) => setParams(value ? { q: value } : {}, { replace: true });
@@ -48,6 +50,7 @@ export default function Explore() {
             key={category.name}
             onClick={() => setQuery(category.name)}
           >
+            <CategoryIcon name={category.name} size={16} />
             {category.name}
           </button>
         ))}
@@ -63,13 +66,11 @@ export default function Explore() {
             {results.length} {results.length === 1 ? "item" : "items"} available
           </h2>
         </div>
-        <span>
-          <i /> Live near UCI
-        </span>
+        <GridPicker />
       </div>
 
       {results.length ? (
-        <div className="item-grid">
+        <div className={gridClass}>
           {results.map((item) => (
             <ItemCard key={item.id} item={item} />
           ))}
@@ -77,7 +78,7 @@ export default function Explore() {
       ) : (
         <EmptyState
           title="Nothing matches yet"
-          body="Try a broader search, like “projector”, “tools”, or “camping”."
+          body="Try a broader search, like “speaker”, “bike”, or “camping”, or pick a category above."
           action={{ to: "/explore", label: "Show all items" }}
         />
       )}

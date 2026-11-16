@@ -153,7 +153,7 @@ function RequestCard({ request, item }: { request: BorrowRequest; item: Item }) 
       )}
       {review && (
         <div className="card-reviewed">
-          <Stars value={review.rating} /> <span>You reviewed this item{review.body ? `: “${review.body}”` : "."}</span>
+          <Stars value={review.rating} showScore /> <span>You reviewed this item{review.body ? `: “${review.body}”` : "."}</span>
         </div>
       )}
       {isActiveBorrow(stage) && thread && (
@@ -266,7 +266,7 @@ function IncomingCard({ request, item }: { request: BorrowRequest; item: Item })
       )}
       {review && (
         <div className="card-reviewed in-lender">
-          <Stars value={review.rating} />{" "}
+          <Stars value={review.rating} showScore />{" "}
           <span>
             {borrowerFirst} reviewed your {item.title}
             {review.body ? `: “${review.body}”` : "."}

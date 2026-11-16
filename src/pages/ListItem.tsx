@@ -1,7 +1,8 @@
 import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
-import { BackLink, ItemCard } from "../components";
-import { categories, type Category, type Item } from "../data";
+import { categories, type Category } from "../categories";
+import { BackLink, CategoryIcon, ItemCard } from "../components";
+import type { Item } from "../data";
 import { SpotMap, SpotSelect } from "../handoff";
 import { DEFAULT_SPOT, isSpot } from "../spots";
 import { Icon } from "../Icon";
@@ -46,6 +47,7 @@ function resizePhoto(file: File): Promise<string> {
 
 function validate(draft: Draft): Errors {
   const errors: Errors = {};
+  if (!draft.photo) errors.photo = "Add a photo of the item. Every listing needs one.";
   const price = Number(draft.price);
   const coverage = Number(draft.coverage);
   if (draft.title.trim().length < 3) errors.title = "Give your item a name (at least 3 characters).";
@@ -118,6 +120,7 @@ export default function ListItem() {
     try {
       const photo = await resizePhoto(file);
       setDraft((current) => ({ ...current, photo }));
+      setErrors((current) => ({ ...current, photo: undefined }));
     } catch {
       setPhotoError("We couldn’t read that photo. Try a different one.");
     } finally {
@@ -184,19 +187,28 @@ export default function ListItem() {
       <div className="split">
         <form className="split-main listing-form" onSubmit={submit} noValidate>
           <section className="form-section">
-            <h2>Photo</h2>
-            <div className={`photo-drop ${draft.photo ? "has-photo" : ""}`}>
+            <h2>
+              Photo <span className="required-tag">Required</span>
+            </h2>
+            <div className={`photo-drop ${draft.photo ? "has-photo" : ""} ${errors.photo ? "has-error" : ""}`}>
               {draft.photo ? (
                 <img src={draft.photo} alt="Your item" />
               ) : (
                 <div className="photo-empty">
                   <Icon name="camera" size={28} />
-                  <b>Add a photo</b>
-                  <span>Listings with photos get requested more. JPG or PNG.</span>
+                  <b>Add a photo of the item</b>
+                  <span>Use a real photo of what you’re lending, so borrowers know what they’ll pick up. JPG or PNG.</span>
                 </div>
               )}
               <div className="photo-actions">
-                <button type="button" className="secondary" onClick={() => fileRef.current?.click()} disabled={photoBusy}>
+                <button
+                  type="button"
+                  id="field-photo"
+                  className={draft.photo ? "secondary" : "primary"}
+                  aria-describedby={errors.photo ? "error-photo" : undefined}
+                  onClick={() => fileRef.current?.click()}
+                  disabled={photoBusy}
+                >
                   {photoBusy ? "Processing…" : draft.photo ? "Change photo" : "Upload photo"}
                 </button>
                 {draft.photo && (
@@ -208,6 +220,7 @@ export default function ListItem() {
               <input ref={fileRef} type="file" accept="image/*" hidden onChange={pickPhoto} />
             </div>
             {photoError && <p className="field-error">{photoError}</p>}
+            {!photoError && error("photo")}
           </section>
 
           <section className="form-section">
@@ -233,7 +246,7 @@ export default function ListItem() {
                       setErrors((c) => ({ ...c, category: undefined }));
                     }}
                   >
-                    <span>{category.symbol}</span>
+                    <CategoryIcon name={category.name} size={22} />
                     {category.name}
                   </button>
                 ))}

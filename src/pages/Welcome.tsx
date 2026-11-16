@@ -1,13 +1,13 @@
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
-import { HeroArt } from "../components";
+import { AnteaterMark, HeroArt } from "../components";
 import { Icon } from "../Icon";
 import { useStore } from "../store";
 
 type Mode = "signup" | "login" | "reset";
 
 export default function Welcome({ initialMode = "signup" }: { initialMode?: Mode }) {
-  const { signUp, signIn, resetPassword } = useStore();
+  const { signUp, signIn, resetPassword, verifyEmail, resendConfirmation } = useStore();
   const [mode, setMode] = useState<Mode>(initialMode);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -17,6 +17,8 @@ export default function Welcome({ initialMode = "signup" }: { initialMode?: Mode
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [checkEmail, setCheckEmail] = useState(false);
+  const [otp, setOtp] = useState("");
+  const [resent, setResent] = useState("");
 
   const switchMode = (next: Mode) => {
     setMode(next);
@@ -47,15 +49,38 @@ export default function Welcome({ initialMode = "signup" }: { initialMode?: Mode
           : await signIn(cleanEmail, password);
     setBusy(false);
     if (!result.ok) return setError(result.error);
-    if (mode === "signup" && result.value && "needsConfirmation" in result.value && result.value.needsConfirmation) {
+    if (result.value && typeof result.value === "object" && "needsConfirmation" in result.value && result.value.needsConfirmation) {
+      setOtp("");
+      setResent(mode === "login" ? "Your email isn’t confirmed yet. Enter the code we sent, or send a new one." : "");
       setCheckEmail(true);
     }
+  };
+
+  const confirm = async (event: FormEvent) => {
+    event.preventDefault();
+    setError("");
+    setBusy(true);
+    const result = await verifyEmail(email, otp);
+    setBusy(false);
+    if (!result.ok) setError(result.error);
+    // On success the session starts and the app opens on its own.
+  };
+
+  const resend = async () => {
+    setError("");
+    setResent("");
+    setBusy(true);
+    const result = await resendConfirmation(email);
+    setBusy(false);
+    if (result.ok) setResent("Sent. Check your inbox (and spam) for the newest email.");
+    else setError(result.error);
   };
 
   return (
     <div className="welcome">
       <header className="welcome-top">
         <span className="brand-lockup">
+          <AnteaterMark className="brand-anteater" color="#fff" />
           <span className="brand">
             lendr<span>.</span>
           </span>
@@ -74,11 +99,11 @@ export default function Welcome({ initialMode = "signup" }: { initialMode?: Mode
             Keep creating.
           </h1>
           <p>
-            Projectors, tools, and camping gear from fellow Anteaters, a few dollars a day. Or lend what you aren’t using.
+            Cameras, speakers, bikes, camping gear, and more from fellow Anteaters, a few dollars a day. Or lend what you aren’t using.
           </p>
           <ul className="welcome-points">
             <li>
-              <Icon name="check" size={16} /> Sign up with your @uci.edu email
+              <Icon name="check" size={16} /> Sign up and confirm with your @uci.edu email
             </li>
             <li>
               <Icon name="check" size={16} /> Lenders approve every borrow
@@ -95,23 +120,61 @@ export default function Welcome({ initialMode = "signup" }: { initialMode?: Mode
 
         <section className="auth-card" aria-labelledby="auth-title">
           {checkEmail ? (
-            <div className="auth-done">
+            <div className="auth-done confirm-email">
               <div className="success-mark">
-                <Icon name="check" size={32} />
+                <Icon name="inbox" size={30} />
               </div>
-              <h2 id="auth-title">Check your inbox</h2>
+              <h2 id="auth-title">Confirm your UCI email</h2>
               <p>
-                We sent a confirmation link to <b>{email.trim().toLowerCase()}</b>. Open it, then come back and log in.
+                We sent a 6-digit code to <b>{email.trim().toLowerCase()}</b>. Enter it here, or tap the link in the email.
               </p>
-              <button
-                className="secondary"
-                onClick={() => {
-                  setCheckEmail(false);
-                  switchMode("login");
-                }}
-              >
-                Back to log in
-              </button>
+              {resent && (
+                <p className="form-note" role="status">
+                  {resent}
+                </p>
+              )}
+              <form className="auth-form" onSubmit={confirm} noValidate>
+                <label className="field">
+                  <span>Confirmation code</span>
+                  <input
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    placeholder="123456"
+                    className="code-input otp-input"
+                    aria-label="6-digit confirmation code"
+                    autoFocus
+                  />
+                </label>
+                {error && (
+                  <p className="form-error" role="alert">
+                    {error}
+                  </p>
+                )}
+                <button className="primary" type="submit" disabled={busy || otp.length !== 6}>
+                  {busy ? "One moment…" : "Confirm email"}
+                </button>
+              </form>
+              <p className="auth-switch">
+                No email after a minute?{" "}
+                <button className="text-link" onClick={() => void resend()} disabled={busy}>
+                  Send a new code
+                </button>
+                <span className="auth-help">
+                  Wrong address?{" "}
+                  <button
+                    className="text-link"
+                    onClick={() => {
+                      setCheckEmail(false);
+                      setError("");
+                      switchMode("signup");
+                    }}
+                  >
+                    Start over
+                  </button>
+                </span>
+              </p>
             </div>
           ) : (
             <>

@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { HeroArt, ItemCard } from "../components";
-import { categories, firstName, photoSrc } from "../data";
+import { categories } from "../categories";
+import { CategoryIcon, GridPicker, HeroArt, ItemCard, useGridClass } from "../components";
+import { firstName, photoSrc } from "../data";
 import { formatRange } from "../dates";
 import { Icon } from "../Icon";
 import { spotName } from "../spots";
@@ -19,6 +20,7 @@ export default function Home() {
   const [query, setQuery] = useState("");
   const { requests, incoming, allItems, findItem, ownerOf, person, me, myListings, hasRecoveryCode, makeRecoveryCode, reviewForRequest } =
     useStore();
+  const gridClass = useGridClass();
   const bundles = allItems.filter((item) => item.bundle);
   const pending = requests.find((request) => displayStatus(request) === "pending");
   const pendingItem = pending ? findItem(pending.itemId) : undefined;
@@ -134,12 +136,17 @@ export default function Home() {
 
       <section className="home-section">
         <div className="section-title">
-          <h2>Popular on campus</h2>
+          <h2>Browse by category</h2>
+          <Link to="/explore" className="text-link">
+            See all
+          </Link>
         </div>
         <div className="categories">
           {categories.map((category) => (
             <button key={category.name} className="category" onClick={() => explore(category.name)}>
-              <span>{category.symbol}</span>
+              <span>
+                <CategoryIcon name={category.name} size={26} />
+              </span>
               {category.name}
             </button>
           ))}
@@ -165,7 +172,7 @@ export default function Home() {
               <p>Borrow a set together for less · samples for now</p>
             </div>
           </div>
-          <div className="item-grid">
+          <div className={gridClass}>
             {bundles.map((item) => (
               <ItemCard key={item.id} item={item} />
             ))}
@@ -179,11 +186,14 @@ export default function Home() {
             <h2>Available near you</h2>
             <p>Newest first · samples are marked</p>
           </div>
-          <Link to="/explore" className="text-link">
-            See all
-          </Link>
+          <div className="section-tools">
+            <GridPicker />
+            <Link to="/explore" className="text-link">
+              See all
+            </Link>
+          </div>
         </div>
-        <div className="item-grid">
+        <div className={gridClass}>
           {allItems.filter((item) => !item.bundle).map((item) => (
             <ItemCard key={item.id} item={item} />
           ))}

@@ -17,7 +17,7 @@ const BORROW: Step[] = [
 ];
 
 const LEND: Step[] = [
-  { title: "List it", body: "Tap “List an item”. Add a photo, what’s included, a daily price, its replacement value, and the spot where you’ll usually leave it." },
+  { title: "List it", body: "Tap “List an item”. Add a real photo of the item (required), pick a category, and say what’s included, the daily price, its replacement value, and the spot where you’ll usually leave it." },
   { title: "Approve requests", body: "Requests show up in Activity → Lending. Accept or decline within 24 hours. You’ll see the borrower’s dates, spots, and profile first." },
   { title: "Drop it off", body: "Leave the item at the pickup spot before the start day, then tap “I dropped it off”. Add a note like “front desk, bag with my name”." },
   { title: "Get it back", body: "When the borrower marks it returned, collect it from the return spot, check it over, and tap “I got it back”. That closes the borrow." },

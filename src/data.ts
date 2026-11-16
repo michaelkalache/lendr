@@ -1,6 +1,7 @@
+import { categoryInfo, categorySvg, matchCategory, type Category } from "./categories";
 import { spotName } from "./spots";
 
-export type Category = "Projectors" | "Tools" | "Outdoors";
+export type { Category } from "./categories";
 
 /** A lender. Sample lenders carry made-up stats; real members only have a name and program. */
 export type Owner = {
@@ -150,7 +151,7 @@ const rawSamples: Omit<Item, "sample">[] = [
   {
     id: "sample-bluetooth-speaker",
     title: "Bluetooth Party Speaker",
-    category: "Tools",
+    category: "Audio",
     price: 5,
     ownerId: "jordan",
     distance: "0.4 mi",
@@ -186,7 +187,7 @@ const rawSamples: Omit<Item, "sample">[] = [
   {
     id: "sample-clicker",
     title: "Presentation Clicker",
-    category: "Projectors",
+    category: "Electronics",
     price: 2,
     ownerId: "priya",
     distance: "0.8 mi",
@@ -236,16 +237,8 @@ const sampleSpots: Record<string, string> = {
 
 export const sampleItems: Item[] = rawSamples.map((item) => ({ ...item, pickup: sampleSpots[item.ownerId], sample: true }));
 
-export const categories: { name: Category; symbol: string }[] = [
-  { name: "Projectors", symbol: "▱" },
-  { name: "Tools", symbol: "⌁" },
-  { name: "Outdoors", symbol: "△" },
-];
-
 /** Name of the spot where this item is dropped off and returned by default. */
 export const pickupOf = (item: Item) => spotName(item.pickup);
-
-const SYMBOLS: Record<Category, string> = { Projectors: "▱", Tools: "⌁", Outdoors: "△" };
 
 /** The item's photo, or a category illustration when the lender didn't upload one. */
 export function photoSrc(item: Item) {
@@ -258,13 +251,13 @@ export function photoSrc(item: Item) {
       .map((part, i) => {
         const x = 70 + i * 95;
         const rot = [-8, 3, -3][i % 3];
-        return `<g transform="rotate(${rot} ${x + 45} 150)"><rect x="${x}" y="95" width="90" height="110" rx="16" fill="#fff" stroke="#c9dbe8" stroke-width="2"/><text x="${x + 45}" y="150" font-family="sans-serif" font-size="46" fill="#0064a4" text-anchor="middle" dominant-baseline="central">${SYMBOLS[part.category]}</text></g>`;
+        return `<g transform="rotate(${rot} ${x + 45} 150)"><rect x="${x}" y="95" width="90" height="110" rx="16" fill="#fff" stroke="#c9dbe8" stroke-width="2"/>${categorySvg(part.category, { size: 46, x: x + 22, y: 127 })}</g>`;
       })
       .join("");
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><rect width="400" height="300" fill="#eaf3f9"/><circle cx="330" cy="40" r="70" fill="none" stroke="#ffcf55" stroke-width="22" opacity=".5"/>${tiles}</svg>`;
     return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
   }
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><rect width="400" height="300" fill="#eaf3f9"/><circle cx="330" cy="40" r="70" fill="none" stroke="#ffcf55" stroke-width="22" opacity=".5"/><text x="200" y="150" font-family="sans-serif" font-size="110" fill="#0064a4" text-anchor="middle" dominant-baseline="central">${SYMBOLS[item.category]}</text></svg>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><rect width="400" height="300" fill="#eaf3f9"/><circle cx="330" cy="40" r="70" fill="none" stroke="#ffcf55" stroke-width="22" opacity=".5"/>${categorySvg(item.category, { size: 104, x: 148, y: 98, stroke: 1.6 })}</svg>`;
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
 
@@ -277,26 +270,26 @@ export const initials = (name: string) =>
     .map((part) => part[0]?.toUpperCase() ?? "")
     .join("");
 
-/** Explore search: same matching rules as the prototype. */
+/**
+ * Explore search. Typing a category's name shows that category; a keyword ("tent", "speaker") jumps to its
+ * category and also keeps any other listing that mentions the word.
+ */
 export function searchItems(query: string, items: Item[]) {
   const normalized = query.trim().toLowerCase();
-  const matchedCategory = categories.find((category) => {
-    const categoryName = category.name.toLowerCase();
-    return (
-      (normalized && normalized.includes(categoryName.slice(0, -1))) ||
-      (category.name === "Outdoors" && /(camp|tent|sleep|hike)/.test(normalized))
-    );
-  })?.name;
-  const textMatches = items.filter((item) =>
-    `${item.title} ${item.category} ${item.description}`.toLowerCase().includes(normalized),
-  );
-  const results = matchedCategory
-    ? items.filter((item) => item.category === matchedCategory)
-    : normalized
-      ? textMatches
-      : items;
+  const matchedCategory = matchCategory(normalized);
+  const exactCategory = matchedCategory && matchedCategory.toLowerCase() === normalized;
+  const mentions = (item: Item) =>
+    `${item.title} ${item.category} ${item.description} ${item.bundle ? "bundle" : ""}`.toLowerCase().includes(normalized);
+  const results = !normalized
+    ? items
+    : exactCategory
+      ? items.filter((item) => item.category === matchedCategory)
+      : items.filter((item) => item.category === matchedCategory || mentions(item));
   return { matchedCategory, normalized, results };
 }
+
+/** Category label + icon helper re-exported for pages. */
+export { categoryInfo };
 
 /** Daily price, capped at 4 days' worth for each full week. */
 export function rentalCost(price: number, days: number) {
@@ -310,12 +303,14 @@ export function bundlesContaining(itemId: string, items: Item[]) {
   return items.filter((item) => item.bundle?.includes(itemId));
 }
 
-/** How much a bundle saves per day versus borrowing its items separately. */
+/** How much a bundle saves per day versus borrowing its items separately: dollars and a whole percent. */
 export function bundleSavings(bundle: Item, items: Item[]) {
   const separate = (bundle.bundle ?? [])
     .map((id) => items.find((item) => item.id === id)?.price ?? 0)
     .reduce((sum, price) => sum + price, 0);
-  return { separate, saves: Math.max(0, separate - bundle.price) };
+  const saves = Math.max(0, separate - bundle.price);
+  const percent = separate > 0 ? Math.round((saves / separate) * 100) : 0;
+  return { separate, saves, percent };
 }
 
 /* ───────── Sample reviews (examples only, always labeled "Sample") ───────── */

@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { Link, Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
-import { BottomNav, SiteHeader } from "./components";
+import { BottomNav, SiteHeader, UciLogo } from "./components";
 import Account from "./pages/Account";
 import Activity from "./pages/Activity";
 import Confirmed from "./pages/Confirmed";
@@ -50,10 +50,10 @@ function PublicHelp() {
     <div className="public-page">
       <header className="welcome-top public-top">
         <Link to="/welcome" className="brand-lockup" aria-label="lendr home">
+          <UciLogo className="brand-logo" />
           <span className="brand">
             lendr<span>.</span>
           </span>
-          <span className="uci-mark">UCI</span>
         </Link>
         <Link to="/welcome" className="primary link-button">
           Join lendr

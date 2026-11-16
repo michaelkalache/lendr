@@ -102,7 +102,7 @@ src/
   spots.ts        campus drop-off spots and their UCI map ids
   handoff.tsx     spot picker, UCI map embed, and the drop-off/return timeline
   dates.ts        date helpers
-  components.tsx  header, bottom nav, item cards, hero art, anteater mark, grid-size picker
+  components.tsx  header, bottom nav, item cards, hero art, UCI logo + Anteater images, grid-size picker
   pages/          one file per route
   styles.css      all styles (UCI navy/gold palette from the prototype)
 ```

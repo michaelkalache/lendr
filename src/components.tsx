@@ -24,11 +24,10 @@ export function SiteHeader() {
     <header className="site-header">
       <div className="header-inner">
         <Link to="/" className="brand-lockup" aria-label="lendr home">
-          <AnteaterMark className="brand-anteater" />
+          <UciLogo className="brand-logo" />
           <span className="brand">
             lendr<span>.</span>
           </span>
-          <span className="uci-mark">UCI</span>
         </Link>
 
         <form className="search-box header-search" role="search" onSubmit={submit}>
@@ -111,40 +110,14 @@ export function BottomNav() {
   );
 }
 
-/**
- * lendr's anteater mark: an original drawing (not UCI's logo or mascot artwork), navy with a gold shoulder band.
- */
-export function AnteaterMark({
-  className = "",
-  color = "var(--navy)",
-  accent = "var(--gold)",
-  title,
-}: {
-  className?: string;
-  color?: string;
-  accent?: string;
-  title?: string;
-}) {
-  return (
-    <svg
-      className={`anteater-mark ${className}`}
-      viewBox="0 0 64 36"
-      role={title ? "img" : undefined}
-      aria-hidden={title ? undefined : true}
-      aria-label={title}
-    >
-      <g fill={color}>
-        <path d="M19 15C13 9 6 9 1.5 12.5c4 .8 6.5 4 7.5 8.5.8 3.6 3.6 5.6 8.5 5Z" />
-        <path d="M14 21c0-6.5 6.5-10 15-10 7.5 0 12.5 2.4 16.5 5.4L62 23.6c.9.5.7 1.4-.3 1.4L46 25.4C43 28.8 37.5 30 30 30c-10 0-16-2.6-16-9Z" />
-        <rect x="17" y="25" width="5.2" height="9" rx="2.6" />
-        <rect x="24" y="26" width="5" height="8" rx="2.5" />
-        <rect x="32.5" y="26" width="5" height="8" rx="2.5" />
-        <rect x="39" y="25" width="5.2" height="9" rx="2.6" />
-      </g>
-      <path d="M33 11.4c3.2 2.6 5.2 8 4.6 14.6" stroke={accent} strokeWidth="3" fill="none" strokeLinecap="round" />
-      <circle cx="47.6" cy="19.6" r="1.25" fill={accent} />
-    </svg>
-  );
+/** UCI's interlocking "UCI" logo (supplied by the team). */
+export function UciLogo({ className = "", alt = "" }: { className?: string; alt?: string }) {
+  return <img className={`uci-logo ${className}`} src="/uci/uci-logo.webp" width={240} height={257} alt={alt} />;
+}
+
+/** UCI's Anteater artwork (supplied by the team). */
+export function Anteater({ className = "", alt = "" }: { className?: string; alt?: string }) {
+  return <img className={`anteater-art ${className}`} src="/uci/anteater.webp" width={640} height={347} alt={alt} />;
 }
 
 /** A category's line icon. */
@@ -285,7 +258,7 @@ export function HeroArt({ compact = false }: { compact?: boolean }) {
         <b>$5</b>
         <small>/ day</small>
       </div>
-      <AnteaterMark className="hero-anteater" color="#fff" />
+      <Anteater className="hero-anteater" />
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { categories } from "../categories";
-import { CategoryIcon, GridPicker, HeroArt, ItemCard, useGridClass } from "../components";
+import { Anteater, CategoryIcon, GridPicker, HeroArt, ItemCard, useGridClass } from "../components";
 import { firstName, photoSrc } from "../data";
 import { formatRange } from "../dates";
 import { Icon } from "../Icon";
@@ -94,6 +94,7 @@ export default function Home() {
           </form>
         </div>
         <HeroArt />
+        <Anteater className="phone-anteater" />
       </section>
 
       {todo && (

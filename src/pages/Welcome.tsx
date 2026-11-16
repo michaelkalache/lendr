@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
-import { AnteaterMark, HeroArt } from "../components";
+import { Anteater, HeroArt, UciLogo } from "../components";
 import { Icon } from "../Icon";
 import { useStore } from "../store";
 
@@ -80,12 +80,12 @@ export default function Welcome({ initialMode = "signup" }: { initialMode?: Mode
     <div className="welcome">
       <header className="welcome-top">
         <span className="brand-lockup">
-          <AnteaterMark className="brand-anteater" color="#fff" />
+          <UciLogo className="brand-logo" alt="UCI" />
           <span className="brand">
             lendr<span>.</span>
           </span>
-          <span className="uci-mark">UCI</span>
         </span>
+        <Anteater className="phone-anteater" />
       </header>
 
       <div className="welcome-grid">

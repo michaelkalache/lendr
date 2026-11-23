@@ -11,7 +11,7 @@ export function SiteHeader() {
   const [params] = useSearchParams();
   const urlQuery = location.pathname === "/explore" ? params.get("q") ?? "" : "";
   const [query, setQuery] = useState(urlQuery);
-  const { activeRequestCount, me } = useStore();
+  const { activeRequestCount, me, favorites } = useStore();
 
   useEffect(() => setQuery(urlQuery), [urlQuery]);
 
@@ -57,6 +57,19 @@ export function SiteHeader() {
           <Link to="/help" className="icon-button help-button" aria-label="Help: how lendr works">
             <Icon name="help" />
           </Link>
+          <NavLink
+            to="/saved"
+            className={({ isActive }) => `icon-button saved-button ${isActive ? "active" : ""}`}
+            aria-label={favorites.length ? `Saved items (${favorites.length})` : "Saved items"}
+            title="Saved"
+          >
+            {({ isActive }) => (
+              <>
+                <Icon name="heart" filled={isActive} />
+                {favorites.length > 0 && <span className="count-badge">{favorites.length > 99 ? "99+" : favorites.length}</span>}
+              </>
+            )}
+          </NavLink>
           <Link
             to="/activity"
             className={`icon-button ${activeRequestCount ? "has-dot" : ""}`}
@@ -81,6 +94,14 @@ export function BottomNav() {
       <NavLink to="/" className={discover ? "active" : ""}>
         <Icon name="home" filled={discover} />
         <span>Discover</span>
+      </NavLink>
+      <NavLink to="/saved">
+        {({ isActive }) => (
+          <>
+            <Icon name="heart" filled={isActive} />
+            <span>Saved</span>
+          </>
+        )}
       </NavLink>
       <NavLink to="/activity">
         {({ isActive }) => (

@@ -8,14 +8,15 @@ a desktop layout with a top navigation bar, and a mobile layout with the origina
 ## The core loop
 
 0. **Welcome** (`/welcome`) — create an account or log in (required)
-1. **Discover** (`/`) — browse listings or pick one of 16 categories; choose how many items per row
+1. **Discover** (`/`) — browse listings or pick a category (7 popular ones show first; *See all* opens all 16); choose how many items per row
 2. **Explore** (`/explore?q=…`) — search and filter (keywords like "tent" or "speaker" jump to their category)
 3. **Item** (`/items/:id`) — details, lender, usual drop-off spot on the UCI map, damage policy
 4. **Request** (`/items/:id/request`) — pick dates on a live calendar and the pickup/return spots, see the total
 5. **Sent** (`/requests/:id`) — confirmation and status timeline
 6. **Activity** (`/activity`) — respond to requests (24 hours), then run the drop-off → pickup → return → confirm loop
 7. **Messages** (`/messages/:lender`) — chat with the lender, quick replies
-8. **Account** (`/account`) — your listings, saved items, profile, log out
+8. **Account** (`/account`) — your listings, a link to Saved, profile, log out
+   **Saved** (`/saved`) — everything you've hearted
 9. **Profiles** (`/people/:id`) — any lender's public profile and their active listings (tap a name)
 10. **Trust & safety** (`/safety`) — the guardrails below, plus how to report a problem
 11. **List an item** (`/list`) — photo upload (required), category, price, replacement value, drop-off spot;
@@ -53,9 +54,11 @@ so every teammate sees the same data on any device, and updates arrive live.
 - **Ratings** are shown out of 5.0 everywhere (cards, item pages, profiles, and each review).
 - **Sample listings, bundles, reviews, and lenders** (marked *Sample* everywhere) show how the site works; they can't be
   requested or messaged, and their ratings and reviews are examples.
-- **Email confirmation (built, switched off for now):** with it on, new accounts get a 6-digit code (and a link) at
-  their @uci.edu address and can't log in until they confirm. It stays off until the project has its own email sender,
-  because Supabase's built-in sender only delivers to project members. See *Turning on email confirmation* below.
+- **Email confirmation:** with it on, new accounts get a code (and a button) at their @uci.edu address and can't
+  log in until they confirm. It needs the project's own email sender, because Supabase's built-in sender only
+  delivers to project members. See *Turning on email confirmation* below.
+- **Saved items** (`/saved`): tap the heart on any listing; the Saved page (header heart on desktop, bottom bar on
+  phones) lists them newest first, or by lowest price.
 
 ### Setting up a new Supabase project
 
@@ -68,15 +71,25 @@ so every teammate sees the same data on any device, and updates arrive live.
 
 ### Turning on email confirmation
 
-1. Get an email sender. The quickest free option is a Gmail account for the group (e.g. a new lendr account) with
-   2-Step Verification on and an **App password** (Google Account → Security → App passwords). Brevo's free plan
-   (300 emails/day) also works.
-2. In Supabase, **Authentication → Emails → SMTP Settings**: turn on custom SMTP and enter the sender's details
-   (Gmail: host `smtp.gmail.com`, port `465`, username = the Gmail address, password = the app password).
-3. **Authentication → Emails → Templates → Confirm signup**: paste in `supabase/email-templates/confirm-signup.html`
-   (it includes the 6-digit `{{ .Token }}` code as well as the link).
-4. **Authentication → URL Configuration**: set **Site URL** to `https://lendr-uci.vercel.app`.
-5. **Authentication → Sign In / Providers → Email**: turn on **Confirm email**. Existing accounts stay confirmed.
+The app side is done: sign-up shows a code screen, the email has a code and a button, log-in with an unconfirmed
+email goes back to the code screen, and "Send a new code" waits out Supabase's one-per-minute limit. The button opens
+`/confirm`, where one tap confirms (so email link scanners can't use up the code). What's left is in Supabase:
+
+1. **An email sender** (Supabase's built-in one only delivers to project members). Easiest: a Gmail account for the
+   group with **2-Step Verification** on, then **Google Account → Security → App passwords** → create one named
+   "lendr". Gmail allows about 500 emails a day.
+2. **Authentication → Emails → SMTP Settings**: turn on **Enable custom SMTP** and enter
+   host `smtp.gmail.com`, port `465`, username = the Gmail address, password = the 16-character app password,
+   sender email = the Gmail address, sender name `lendr`.
+3. **Authentication → Emails → Templates → Confirm signup**: subject `Your lendr code: {{ .Token }}`, body =
+   `supabase/email-templates/confirm-signup.html`.
+4. **Authentication → URL Configuration**: **Site URL** `https://lendr-uci.vercel.app`; add
+   `https://lendr-uci.vercel.app/**` under **Redirect URLs**.
+5. **Authentication → Rate Limits**: raise **emails sent per hour** from 30 if a class demo will have many sign-ups.
+6. **Authentication → Sign In / Providers → Email**: turn on **Confirm email** and save. Existing accounts stay
+   confirmed. Sign up with a test @uci.edu address to check the email arrives (look in junk the first time).
+
+To pause it again, turn **Confirm email** off; sign-up goes back to logging people in straight away.
 
 ## Run it locally
 

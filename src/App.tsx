@@ -3,6 +3,7 @@ import { Link, Navigate, Outlet, Route, Routes, useLocation } from "react-router
 import { BottomNav, SiteHeader, UciLogo } from "./components";
 import Account from "./pages/Account";
 import Activity from "./pages/Activity";
+import ConfirmEmail from "./pages/ConfirmEmail";
 import Confirmed from "./pages/Confirmed";
 import Detail from "./pages/Detail";
 import Explore from "./pages/Explore";
@@ -14,6 +15,7 @@ import NotFound from "./pages/NotFound";
 import Person from "./pages/Person";
 import RequestItem from "./pages/RequestItem";
 import Safety from "./pages/Safety";
+import Saved from "./pages/Saved";
 import Welcome from "./pages/Welcome";
 import { RecoveryCodeModal } from "./trust";
 import { useStore } from "./store";
@@ -131,6 +133,7 @@ export default function App() {
       <Routes>
         <Route path="welcome" element={<Welcome />} />
         <Route path="login" element={<Welcome initialMode="login" />} />
+        <Route path="confirm" element={<ConfirmEmail />} />
         <Route path="help" element={<PublicHelp />} />
         <Route path="*" element={<Navigate to="/welcome" replace state={{ from: location.pathname + location.search }} />} />
       </Routes>
@@ -145,6 +148,7 @@ export default function App() {
     <Routes>
       <Route path="welcome" element={<Navigate to={from && from !== "/welcome" ? from : "/"} replace />} />
       <Route path="login" element={<Navigate to="/" replace />} />
+      <Route path="confirm" element={<Navigate to="/" replace />} />
       <Route element={<Layout />}>
         <Route index element={<Home />} />
         <Route path="explore" element={<Explore />} />
@@ -157,6 +161,7 @@ export default function App() {
         <Route path="messages" element={<Messages />} />
         <Route path="messages/:threadId" element={<Messages />} />
         <Route path="account" element={<Account />} />
+        <Route path="saved" element={<Saved />} />
         <Route path="people/:personId" element={<Person />} />
         <Route path="safety" element={<Safety />} />
         <Route path="help" element={<Help />} />

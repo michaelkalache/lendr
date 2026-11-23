@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { categories } from "../categories";
+import { categoriesForBrowsing, FEATURED_CATEGORIES } from "../categories";
 import { Anteater, CategoryIcon, GridPicker, HeroArt, ItemCard, useGridClass } from "../components";
 import { firstName, photoSrc } from "../data";
 import { formatRange } from "../dates";
@@ -18,6 +18,9 @@ function greeting() {
 export default function Home() {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
+  const [allCategories, setAllCategories] = useState(false);
+  const browse = categoriesForBrowsing();
+  const shownCategories = allCategories ? browse : browse.slice(0, FEATURED_CATEGORIES.length);
   const { requests, incoming, allItems, findItem, ownerOf, person, me, myListings, hasRecoveryCode, makeRecoveryCode, reviewForRequest } =
     useStore();
   const gridClass = useGridClass();
@@ -138,19 +141,37 @@ export default function Home() {
       <section className="home-section">
         <div className="section-title">
           <h2>Browse by category</h2>
-          <Link to="/explore" className="text-link">
-            See all
-          </Link>
+          <button
+            type="button"
+            className="text-link"
+            aria-expanded={allCategories}
+            aria-controls="home-categories"
+            onClick={() => setAllCategories((open) => !open)}
+          >
+            {allCategories ? "Show fewer" : `See all ${browse.length}`}
+          </button>
         </div>
-        <div className="categories">
-          {categories.map((category) => (
-            <button key={category.name} className="category" onClick={() => explore(category.name)}>
+        <div id="home-categories" className={`categories ${allCategories ? "expanded" : "collapsed"}`}>
+          {shownCategories.map((category, index) => (
+            <button
+              key={category.name}
+              className={`category ${index >= 3 ? "rank-4" : ""} ${index >= 5 ? "rank-6" : ""} ${index >= FEATURED_CATEGORIES.length ? "extra" : ""}`}
+              onClick={() => explore(category.name)}
+            >
               <span>
                 <CategoryIcon name={category.name} size={26} />
               </span>
               {category.name}
             </button>
           ))}
+          {!allCategories && (
+            <button type="button" className="category category-more" onClick={() => setAllCategories(true)}>
+              <span>
+                <Icon name="grid" size={24} />
+              </span>
+              More
+            </button>
+          )}
         </div>
       </section>
 

@@ -1,6 +1,5 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ItemCard } from "../components";
 import { initials, photoSrc } from "../data";
 import { Icon } from "../Icon";
 import { useStore } from "../store";
@@ -117,7 +116,7 @@ export default function Account() {
   const [codeError, setCodeError] = useState("");
   const [editing, setEditing] = useState(false);
   const [confirmLogout, setConfirmLogout] = useState(false);
-  const saved = allItems.filter((item) => favorites.includes(item.id));
+  const saved = favorites.map((id) => allItems.find((item) => item.id === id)).filter((item) => item !== undefined);
   if (!me) return null;
   const lends = incoming.filter((request) => request.status === "approved").length;
   const borrows = requests.filter((request) => request.status === "approved").length;
@@ -194,22 +193,24 @@ export default function Account() {
 
       <section className="account-section">
         <div className="section-title">
-          <div>
-            <h2>Saved items</h2>
-            <p>Tap the heart on any listing to save it here</p>
-          </div>
+          <h2>Saved items</h2>
         </div>
-        {saved.length ? (
-          <div className="item-grid two-up">
-            {saved.map((item) => (
-              <ItemCard key={item.id} item={item} />
-            ))}
-          </div>
-        ) : (
-          <p className="muted-line">
-            Nothing saved yet. <Link to="/explore">Browse listings</Link>
-          </p>
-        )}
+        <Link to="/saved" className="saved-link">
+          <span className="saved-thumbs">
+            {saved.length ? (
+              saved.slice(0, 3).map((item) => <img key={item.id} src={photoSrc(item)} alt="" />)
+            ) : (
+              <span className="saved-thumb-empty">
+                <Icon name="heart" />
+              </span>
+            )}
+          </span>
+          <span>
+            <b>{saved.length ? `${saved.length} saved ${saved.length === 1 ? "item" : "items"}` : "Nothing saved yet"}</b>
+            <em>{saved.length ? "See your saved list" : "Tap the heart on any listing to save it"}</em>
+          </span>
+          <Icon name="chevron" />
+        </Link>
       </section>
 
       <section className="account-section">

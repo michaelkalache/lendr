@@ -115,6 +115,15 @@ export const categories: CategoryInfo[] = [
   },
 ];
 
+/** Shown first on Discover; the rest appear after "See all". */
+export const FEATURED_CATEGORIES: Category[] = ["Projectors", "Cameras", "Audio", "Outdoors", "Gaming", "Tools", "Party & Events"];
+
+/** Featured categories first, then the rest in their usual order. */
+export const categoriesForBrowsing = () => [
+  ...FEATURED_CATEGORIES.map((name) => byName.get(name)!),
+  ...categories.filter((category) => !FEATURED_CATEGORIES.includes(category.name)),
+];
+
 const byName = new Map(categories.map((category) => [category.name, category]));
 
 export const isCategory = (value: string | null | undefined): value is Category =>

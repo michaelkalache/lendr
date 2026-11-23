@@ -1,14 +1,25 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { Anteater, HeroArt, UciLogo } from "../components";
 import { Icon } from "../Icon";
 import { useStore } from "../store";
+import { authLinkResult } from "../supabase";
+
+/** Supabase allows one confirmation email per address per minute. */
+const RESEND_WAIT = 60;
+
+const linkProblem = (() => {
+  if (!authLinkResult || !("error" in authLinkResult)) return "";
+  return authLinkResult.error === "otp_expired"
+    ? "That confirmation link has expired or was already used. Log in and we’ll help you get a new code."
+    : authLinkResult.description || "That email link didn’t work. Log in to try again.";
+})();
 
 type Mode = "signup" | "login" | "reset";
 
 export default function Welcome({ initialMode = "signup" }: { initialMode?: Mode }) {
   const { signUp, signIn, resetPassword, verifyEmail, resendConfirmation } = useStore();
-  const [mode, setMode] = useState<Mode>(initialMode);
+  const [mode, setMode] = useState<Mode>(linkProblem ? "login" : initialMode);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -19,6 +30,20 @@ export default function Welcome({ initialMode = "signup" }: { initialMode?: Mode
   const [checkEmail, setCheckEmail] = useState(false);
   const [otp, setOtp] = useState("");
   const [resent, setResent] = useState("");
+  const [waitUntil, setWaitUntil] = useState(0);
+  const [now, setNow] = useState(() => Date.now());
+  const wait = Math.max(0, Math.ceil((waitUntil - now) / 1000));
+
+  useEffect(() => {
+    if (!waitUntil) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [waitUntil]);
+
+  const startWait = () => {
+    setNow(Date.now());
+    setWaitUntil(Date.now() + RESEND_WAIT * 1000);
+  };
 
   const switchMode = (next: Mode) => {
     setMode(next);
@@ -52,6 +77,7 @@ export default function Welcome({ initialMode = "signup" }: { initialMode?: Mode
     if (result.value && typeof result.value === "object" && "needsConfirmation" in result.value && result.value.needsConfirmation) {
       setOtp("");
       setResent(mode === "login" ? "Your email isn’t confirmed yet. Enter the code we sent, or send a new one." : "");
+      if (mode === "signup") startWait();
       setCheckEmail(true);
     }
   };
@@ -72,8 +98,10 @@ export default function Welcome({ initialMode = "signup" }: { initialMode?: Mode
     setBusy(true);
     const result = await resendConfirmation(email);
     setBusy(false);
-    if (result.ok) setResent("Sent. Check your inbox (and spam) for the newest email.");
-    else setError(result.error);
+    if (result.ok) {
+      setResent("Sent. Check your inbox (and junk folder) for the newest email. Only its code works.");
+      startWait();
+    } else setError(result.error);
   };
 
   return (
@@ -126,7 +154,8 @@ export default function Welcome({ initialMode = "signup" }: { initialMode?: Mode
               </div>
               <h2 id="auth-title">Confirm your UCI email</h2>
               <p>
-                We sent a 6-digit code to <b>{email.trim().toLowerCase()}</b>. Enter it here, or tap the link in the email.
+                We sent a code to <b>{email.trim().toLowerCase()}</b>. Enter it here, or tap the button in the email. It can take a
+                minute, and sometimes lands in junk.
               </p>
               {resent && (
                 <p className="form-note" role="status">
@@ -138,12 +167,12 @@ export default function Welcome({ initialMode = "signup" }: { initialMode?: Mode
                   <span>Confirmation code</span>
                   <input
                     value={otp}
-                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 10))}
                     inputMode="numeric"
                     autoComplete="one-time-code"
                     placeholder="123456"
                     className="code-input otp-input"
-                    aria-label="6-digit confirmation code"
+                    aria-label="Confirmation code"
                     autoFocus
                   />
                 </label>
@@ -152,14 +181,14 @@ export default function Welcome({ initialMode = "signup" }: { initialMode?: Mode
                     {error}
                   </p>
                 )}
-                <button className="primary" type="submit" disabled={busy || otp.length !== 6}>
+                <button className="primary" type="submit" disabled={busy || otp.length < 6}>
                   {busy ? "One moment…" : "Confirm email"}
                 </button>
               </form>
               <p className="auth-switch">
-                No email after a minute?{" "}
-                <button className="text-link" onClick={() => void resend()} disabled={busy}>
-                  Send a new code
+                No email?{" "}
+                <button className="text-link" onClick={() => void resend()} disabled={busy || wait > 0}>
+                  {wait > 0 ? `Send a new code in ${wait}s` : "Send a new code"}
                 </button>
                 <span className="auth-help">
                   Wrong address?{" "}
@@ -178,6 +207,11 @@ export default function Welcome({ initialMode = "signup" }: { initialMode?: Mode
             </div>
           ) : (
             <>
+              {linkProblem && mode === "login" && (
+                <p className="form-note link-problem" role="status">
+                  {linkProblem}
+                </p>
+              )}
               <div className="auth-tabs" role="tablist">
                 <button role="tab" aria-selected={mode === "signup"} className={mode === "signup" ? "active" : ""} onClick={() => switchMode("signup")}>
                   Create account

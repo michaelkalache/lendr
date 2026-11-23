@@ -3,7 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { sampleItems, sampleOwners, sampleReviews, type Category, type Item, type Owner } from "./data";
 import { formatRange, todayISO } from "./dates";
 import { DEFAULT_SPOT, spotName } from "./spots";
-import { PHOTO_BUCKET, supabase, supabaseConfigured } from "./supabase";
+import { authLinkResult, PHOTO_BUCKET, supabase, supabaseConfigured } from "./supabase";
 
 /** Lenders have 24 hours to accept or decline a request. */
 export const REQUEST_TTL_MS = 24 * 60 * 60 * 1000;
@@ -178,6 +178,7 @@ export function friendlyError(error: { message?: string } | null | undefined): s
   if (/password should be at least/i.test(message)) return "Use a password with at least 8 characters.";
   if (/rate limit|too many requests|only request this after/i.test(message))
     return "Too many attempts. Wait a minute and try again.";
+  if (/email link is invalid/i.test(message)) return "That link has expired or was already used. Log in to get a new code.";
   if (/token has expired|otp_expired|invalid otp|token.*invalid/i.test(message))
     return "That code is wrong or has expired. Check your latest email, or send a new code.";
   if (/email not confirmed/i.test(message)) return "Confirm your email first. We sent you a code.";
@@ -311,6 +312,8 @@ type Store = {
   /** Confirm a new account with the 6-digit code from the confirmation email (signs the person in). */
   verifyEmail: (email: string, code: string) => Promise<Result>;
   resendConfirmation: (email: string) => Promise<Result>;
+  /** Confirms an email from the link in the confirmation email (lendr's /confirm page). */
+  confirmEmailLink: (tokenHash: string) => Promise<Result>;
   signOut: () => Promise<void>;
   updateProfile: (input: { name: string; program: string }) => Promise<Result>;
   toggleFavorite: (itemId: string) => Promise<void>;
@@ -354,6 +357,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [hasRecoveryCode, setHasRecoveryCode] = useState<boolean | null>(null);
   const [recoveryCodeToShow, setRecoveryCodeToShow] = useState<string | null>(null);
   const userId = session?.user.id ?? null;
+  const confirmLinkHandled = useRef(false);
   const loadedFor = useRef<string | null>(null);
 
   /* Auth session */
@@ -378,7 +382,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       supabase.from("requests").select("*").order("created_at", { ascending: false }),
       supabase.from("conversations").select("*").order("updated_at", { ascending: false }),
       supabase.from("messages").select("*").order("created_at", { ascending: true }),
-      supabase.from("favorites").select("listing_id"),
+      supabase.from("favorites").select("listing_id").order("created_at", { ascending: false }),
       supabase.from("reviews").select("*").order("created_at", { ascending: false }),
       supabase.from("reports").select("id, listing_id, user_id, created_at"),
       supabase.rpc("has_recovery_code"),
@@ -418,6 +422,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     loadedFor.current = userId;
     setLoading(true);
     refresh().finally(() => setLoading(false));
+    // Confirmed by tapping the email link instead of typing the code: give them their recovery code now.
+    if (authLinkResult && "confirmed" in authLinkResult && !confirmLinkHandled.current) {
+      confirmLinkHandled.current = true;
+      void issueFirstRecoveryCode();
+    }
   }, [userId, refresh]);
 
   /* Live updates: when anything changes for this person, reload (debounced). */
@@ -568,8 +577,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const verifyEmail: Store["verifyEmail"] = async (email, code) => {
     const token = code.replace(/\D/g, "");
-    if (token.length !== 6) return { ok: false, error: "Enter the 6-digit code from the email." };
+    if (token.length < 6 || token.length > 10) return { ok: false, error: "Enter the code from the email." };
     const { data, error } = await supabase.auth.verifyOtp({ email: email.trim().toLowerCase(), token, type: "email" });
+    if (error) return fail(error);
+    if (data.session) await issueFirstRecoveryCode();
+    return { ok: true, value: undefined };
+  };
+
+  const confirmEmailLink: Store["confirmEmailLink"] = async (tokenHash) => {
+    const { data, error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: "email" });
     if (error) return fail(error);
     if (data.session) await issueFirstRecoveryCode();
     return { ok: true, value: undefined };
@@ -599,7 +615,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const toggleFavorite = async (itemId: string) => {
     if (!userId) return;
     const saved = favorites.includes(itemId);
-    setFavorites((current) => (saved ? current.filter((id) => id !== itemId) : [...current, itemId]));
+    setFavorites((current) => (saved ? current.filter((id) => id !== itemId) : [itemId, ...current]));
     const { error } = saved
       ? await supabase.from("favorites").delete().eq("user_id", userId).eq("listing_id", itemId)
       : await supabase.from("favorites").insert({ listing_id: itemId });
@@ -875,6 +891,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     signUp,
     verifyEmail,
     resendConfirmation,
+    confirmEmailLink,
     signIn,
     signOut,
     updateProfile,

@@ -215,32 +215,37 @@ function GridGlyph({ columns }: { columns: number }) {
   );
 }
 
-/** "Grid: 2 3 4 5" picker. Phones get 1 or 2 across; bigger screens 2–5. */
+/** Items-per-row slider. Phones slide between 1 and 2 across; bigger screens between 2 and 5. */
 export function GridPicker() {
   const grid = useGridDensity();
-  const group = (key: keyof GridDensity, options: number[], className: string) => (
-    <div className={`grid-picker ${className}`} role="radiogroup" aria-label="Items per row">
-      {options.map((columns) => (
-        <button
-          key={columns}
-          type="button"
-          role="radio"
-          aria-checked={grid[key] === columns}
-          aria-label={`${columns} per row`}
-          title={`${columns} per row`}
-          className={grid[key] === columns ? "active" : ""}
-          onClick={() => setGrid({ [key]: columns })}
-        >
-          <GridGlyph columns={columns} />
-          <span>{columns}</span>
-        </button>
-      ))}
-    </div>
-  );
+  const slider = (key: keyof GridDensity, options: number[], className: string) => {
+    const min = options[0];
+    const max = options[options.length - 1];
+    const value = grid[key];
+    const fill = ((value - min) / (max - min)) * 100;
+    return (
+      <label className={`grid-picker grid-slider ${className}`} title="Items per row">
+        <GridGlyph columns={min} />
+        <input
+          type="range"
+          min={min}
+          max={max}
+          step={1}
+          value={value}
+          aria-label="Items per row"
+          aria-valuetext={`${value} per row`}
+          style={{ "--fill": `${fill}%` } as React.CSSProperties}
+          onChange={(event) => setGrid({ [key]: Number(event.target.value) })}
+        />
+        <GridGlyph columns={max} />
+        <output aria-hidden="true">{value}</output>
+      </label>
+    );
+  };
   return (
     <>
-      {group("phone", PHONE_COLUMNS, "phone-only")}
-      {group("wide", WIDE_COLUMNS, "wide-only")}
+      {slider("phone", PHONE_COLUMNS, "phone-only")}
+      {slider("wide", WIDE_COLUMNS, "wide-only")}
     </>
   );
 }

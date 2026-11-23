@@ -5827,3 +5827,113 @@ ol.progress-list {
   cursor: default;
   text-decoration: none;
 }
+
+/* Items-per-row slider (replaces the 2/3/4/5 buttons) */
+.grid-slider {
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  color: var(--slate);
+  cursor: pointer;
+}
+
+.grid-slider svg {
+  flex: none;
+  opacity: 0.75;
+}
+
+.grid-slider output {
+  min-width: 2ch;
+  color: var(--navy);
+  font-size: 13px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.grid-slider input[type="range"] {
+  --fill: 0%;
+  width: 92px;
+  height: 20px;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.grid-slider.phone-only input[type="range"] {
+  width: 56px;
+}
+
+.grid-slider input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px;
+  background: linear-gradient(to right, var(--navy) var(--fill), var(--line) var(--fill));
+  border-radius: 2px;
+}
+
+.grid-slider input[type="range"]::-moz-range-track {
+  height: 4px;
+  background: var(--line);
+  border-radius: 2px;
+}
+
+.grid-slider input[type="range"]::-moz-range-progress {
+  height: 4px;
+  background: var(--navy);
+  border-radius: 2px;
+}
+
+.grid-slider input[type="range"]::-webkit-slider-thumb {
+  width: 18px;
+  height: 18px;
+  margin-top: -7px;
+  background: var(--gold);
+  border: 3px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 1px 4px rgba(12, 35, 64, 0.35);
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.grid-slider input[type="range"]::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  background: var(--gold);
+  border: 3px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 1px 4px rgba(12, 35, 64, 0.35);
+}
+
+.grid-slider input[type="range"]:focus-visible {
+  outline: none;
+}
+
+.grid-slider:focus-within {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px var(--blue-soft);
+}
+
+/* Phones: keep the slider compact, and let the tools drop below the heading if space runs out. */
+@media (max-width: 719px) {
+  .section-title:has(.section-tools) {
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+
+  .section-title .section-tools {
+    margin-left: auto;
+  }
+
+  .grid-slider.phone-only {
+    gap: 6px;
+    padding: 5px 9px;
+  }
+
+  .grid-slider.phone-only output {
+    display: none;
+  }
+
+  .grid-slider.phone-only input[type="range"] {
+    width: 44px;
+  }
+}
